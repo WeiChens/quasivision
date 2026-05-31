@@ -3,6 +3,17 @@ name = "quasivision"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
+description = "A Rust-based pseudo-visual understanding tool.  "
+repository = "https://github.com/chenjian-wei/quasivision"
+readme = "README.md"
+keywords = [
+    "ui-detection",
+    "ocr",
+    "object-detection",
+    "computer-vision",
+    "screenshot",
+]
+categories = ["computer-vision", "multimedia::images"]
 
 [dependencies]
 image = "0.25"

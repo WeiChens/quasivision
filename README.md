@@ -1,11 +1,17 @@
+<h1 align="center">quasivision</h1>
+
+<p align="center">
+  <a href="https://github.com/chenjian-wei/quasivision/stargazers"><img src="https://img.shields.io/github/stars/chenjian-wei/quasivision?style=for-the-badge&logo=github" alt="Stars"></a>
+  <a href="https://github.com/chenjian-wei/quasivision/network/members"><img src="https://img.shields.io/github/forks/chenjian-wei/quasivision?style=for-the-badge&logo=github" alt="Forks"></a>
+  <a href="https://github.com/chenjian-wei/quasivision/issues"><img src="https://img.shields.io/github/issues/chenjian-wei/quasivision?style=for-the-badge&logo=github" alt="Issues"></a>
+  <a href="https://github.com/chenjian-wei/quasivision/blob/main/LICENSE"><img src="https://img.shields.io/github/license/chenjian-wei/quasivision?style=for-the-badge" alt="License"></a>
+</p>
 <p align="center">
   <a href="README.md">🇬🇧 English</a> · <a href="README-zh.md">🇨🇳 中文</a>
 </p>
 
-# quasivision
-
-> **quasivision** — A Rust-based pseudo-visual understanding tool.  
-> Automatically detects UI components (buttons, text fields, icons, images, etc.) from screenshots or UI design mockups, performs OCR text recognition, object detection, icon classification, and outputs structured descriptions.
+A Rust-based pseudo-visual understanding tool.  
+Analyzes screenshots, UI mockups, and real-world photos — detects UI components (buttons, text fields, icons, images, etc.), recognizes text via OCR, identifies 254 classes of everyday objects (people, cars, phones, food, etc.) with YOLO-World, classifies 81 types of icon meanings, and outputs structured descriptions with visual annotations.
 
 ---
 
@@ -30,6 +36,9 @@
 # Single image
 cargo run -- --input image.png
 
+# Try with the built-in demo
+cargo run -- --input demo/ui.jpg
+
 # Custom output directory
 cargo run -- --input image.png --output ./result
 
@@ -43,10 +52,10 @@ cargo run -- --input ./screenshots/ --recursive
 ### Minimal Example
 
 ```bash
-cargo run -- --input screenshot.png
+cargo run -- --input demo/ui.jpg
 ```
 
-Results are written to `./output/screenshot/`.
+Results are written to `./output/ui/`.
 
 ---
 
@@ -54,21 +63,22 @@ Results are written to `./output/screenshot/`.
 
 ### 1. UI Detection — Web Search Page
 
-| Input | Output |
-|:-----:|:------:|
+|          Input           |                   Output                    |
+| :----------------------: | :-----------------------------------------: |
 | ![ui-input](demo/ui.jpg) | ![ui-viz](demo/output/ui/visualization.jpg) |
 
 Detected UI components including text, icons, buttons, and structured blocks from a search result page — with full OCR text extraction.
 
 ### 2. Object Detection — Real-World Photo
 
-| Input | Output |
-|:-----:|:------:|
-| ![reality-input](demo/reality.jpg) | ![reality-viz](demo/output/reality/visualization.jpg) |
+|               Input                |                     Output                      |
+| :--------------------------------: | :---------------------------------------------: |
+| ![reality-input](demo/reality.jpg) | ![reality-viz](demo/output/reality/objects.jpg) |
 
 Detected objects with hierarchical relationships (woman → child → hat/glasses/dress/coat), visualized with bounding boxes and labels.
 
 **Detection result:**
+
 ```
 Objects (474×714) — 7 found:
 ├─ woman (54%)
@@ -82,8 +92,8 @@ Objects (474×714) — 7 found:
 
 ### 3. Mixed Scenario — Stock Photo Gallery
 
-| Input | Output (UI) | Output (Objects) |
-|:-----:|:-----------:|:----------------:|
+|                 Input                 |                       Output (UI)                       |                  Output (Objects)                  |
+| :-----------------------------------: | :-----------------------------------------------------: | :------------------------------------------------: |
 | ![mixed-input](demo/realityAndUi.jpg) | ![mixed-ui](demo/output/realityAndUi/visualization.jpg) | ![mixed-obj](demo/output/realityAndUi/objects.jpg) |
 
 A stock photo gallery page: UI detection extracts the layout structure (image grid, navigation bar, text labels), while object detection identifies photo subjects (people, faces, etc.).
@@ -106,14 +116,14 @@ A stock photo gallery page: UI detection extracts the layout structure (image gr
 
 ### Output Files
 
-| File                                  | Source        | Description                                        |
-| ------------------------------------- | ------------- | -------------------------------------------------- |
-| `elements.tree.json` / `elements.json`| UI Detection  | All detected UI components (buttons/text/icons/etc) |
-| `elements.tree.txt` / `elements.txt`  | UI Detection  | Plain text summary                                 |
-| `visualization.jpg`                   | UI Detection  | Annotated image with color-coded component borders |
-| `objects.tree.json` / `objects.json`  | Object Detect | YOLO-detected objects (254 classes) with hierarchy |
-| `objects.tree.txt`                    | Object Detect | Object detection plain text summary                |
-| `objects.jpg`                         | Object Detect | Object detection visualization with labels         |
+| File                                   | Source        | Description                                         |
+| -------------------------------------- | ------------- | --------------------------------------------------- |
+| `elements.tree.json` / `elements.json` | UI Detection  | All detected UI components (buttons/text/icons/etc) |
+| `elements.tree.txt` / `elements.txt`   | UI Detection  | Plain text summary                                  |
+| `visualization.jpg`                    | UI Detection  | Annotated image with color-coded component borders  |
+| `objects.tree.json` / `objects.json`   | Object Detect | YOLO-detected objects (254 classes) with hierarchy  |
+| `objects.tree.txt`                     | Object Detect | Object detection plain text summary                 |
+| `objects.jpg`                          | Object Detect | Object detection visualization with labels          |
 
 ---
 
@@ -121,60 +131,60 @@ A stock photo gallery page: UI detection extracts the layout structure (image gr
 
 ### Basic Options
 
-| Argument        | Type   | Default             | Description                                  |
-| --------------- | ------ | ------------------- | -------------------------------------------- |
-| `-i, --input`   | String | **Required**        | Input image path or directory                 |
-| `-o, --output`  | String | `output`            | Output root directory                         |
-| `--format`      | String | `tree`              | Output format: `standard`/`compact`/`ai`/`text`/`tree` |
-| `--recursive`   | bool   | `false`             | Recursively process subdirectories            |
-| `--extensions`  | String | `png,jpg,jpeg,jfif` | Comma-separated image file extensions         |
+| Argument       | Type   | Default             | Description                                            |
+| -------------- | ------ | ------------------- | ------------------------------------------------------ |
+| `-i, --input`  | String | **Required**        | Input image path or directory                          |
+| `-o, --output` | String | `output`            | Output root directory                                  |
+| `--format`     | String | `tree`              | Output format: `standard`/`compact`/`ai`/`text`/`tree` |
+| `--recursive`  | bool   | `false`             | Recursively process subdirectories                     |
+| `--extensions` | String | `png,jpg,jpeg,jfif` | Comma-separated image file extensions                  |
 
 ### UI Detection Options
 
-| Argument             | Type | Default | Description                                    |
-| -------------------- | ---- | ------- | ---------------------------------------------- |
-| `--gradient`         | u8   | `4`     | Gradient threshold (dribbble/rico: 4, web: 1)  |
-| `--min-area`         | u32  | `55`    | Minimum connected component area                |
-| `--paragraph`        | bool | `false` | Enable paragraph merging                        |
-| `--remove-bar`       | bool | `true`  | Remove top/bottom navigation bars               |
-| `--sub-component`    | bool | `true`  | Detect sub-components (buttons inside images)   |
-| `--synthesize-text`  | bool | `true`  | Auto-synthesize container blocks for orphan text|
+| Argument            | Type | Default | Description                                      |
+| ------------------- | ---- | ------- | ------------------------------------------------ |
+| `--gradient`        | u8   | `4`     | Gradient threshold (dribbble/rico: 4, web: 1)    |
+| `--min-area`        | u32  | `55`    | Minimum connected component area                 |
+| `--paragraph`       | bool | `false` | Enable paragraph merging                         |
+| `--remove-bar`      | bool | `true`  | Remove top/bottom navigation bars                |
+| `--sub-component`   | bool | `true`  | Detect sub-components (buttons inside images)    |
+| `--synthesize-text` | bool | `true`  | Auto-synthesize container blocks for orphan text |
 
 ### Line / Rectangle Options
 
-| Argument             | Type | Default | Description                                       |
-| -------------------- | ---- | ------- | ------------------------------------------------- |
-| `--line-thickness`   | u32  | `8`     | Maximum line thickness (pixels)                    |
-| `--line-min-length`  | f64  | `0.95`  | Minimum line length ratio                          |
-| `--rec-evenness`     | f64  | `0.7`   | Minimum rectangle evenness                         |
-| `--rec-dent`         | f64  | `0.25`  | Maximum rectangle dent ratio                       |
-| `--rec-corner-skip`  | f64  | `0.08`  | Corner tolerance (0=strict right angle, 0.08~0.12=rounded) |
+| Argument            | Type | Default | Description                                                |
+| ------------------- | ---- | ------- | ---------------------------------------------------------- |
+| `--line-thickness`  | u32  | `8`     | Maximum line thickness (pixels)                            |
+| `--line-min-length` | f64  | `0.95`  | Minimum line length ratio                                  |
+| `--rec-evenness`    | f64  | `0.7`   | Minimum rectangle evenness                                 |
+| `--rec-dent`        | f64  | `0.25`  | Maximum rectangle dent ratio                               |
+| `--rec-corner-skip` | f64  | `0.08`  | Corner tolerance (0=strict right angle, 0.08~0.12=rounded) |
 
 ### Block Detection Options
 
-| Argument      | Type | Default | Description                            |
-| ------------- | ---- | ------- | -------------------------------------- |
-| `--block-side`| f64  | `0.15`  | Block side length ratio threshold       |
-| `--block-grad`| u8   | `5`     | Block nesting detection gradient threshold |
+| Argument       | Type | Default | Description                                |
+| -------------- | ---- | ------- | ------------------------------------------ |
+| `--block-side` | f64  | `0.15`  | Block side length ratio threshold          |
+| `--block-grad` | u8   | `5`     | Block nesting detection gradient threshold |
 
 ### Text Options
 
-| Argument     | Type | Default | Description                                |
-| ------------ | ---- | ------- | ------------------------------------------ |
-| `--text-max-h`| f64 | `0.08`  | Max text height ratio (relative to image height) |
-| `--text-gap` | u32  | `10`    | Max word gap (pixels)                      |
-| `--ocr`      | bool | `true`  | Enable OCR text recognition                |
+| Argument       | Type | Default | Description                                      |
+| -------------- | ---- | ------- | ------------------------------------------------ |
+| `--text-max-h` | f64  | `0.08`  | Max text height ratio (relative to image height) |
+| `--text-gap`   | u32  | `10`    | Max word gap (pixels)                            |
+| `--ocr`        | bool | `true`  | Enable OCR text recognition                      |
 
 ### Icon / Object Detection Options
 
-| Argument           | Type   | Default                                               | Description                        |
-| ------------------ | ------ | ----------------------------------------------------- | ---------------------------------- |
-| `--icon-classify`  | bool   | `true`                                                | Enable icon meaning classification |
-| `--object-detect`  | bool   | `true`                                                | Enable object detection            |
-| `--detect-model`   | String | `resources/object-detection/yolov8s-worldv2.onnx`     | YOLO model path                    |
-| `--detect-labels`  | String | `resources/object-detection/yolov8s-worldv2_labels.txt`| YOLO labels file path             |
-| `--detect-conf`    | f32    | `0.2`                                                 | Detection confidence threshold (0~1)|
-| `--models-dir`     | String | `resources`                                           | Model resource root directory       |
+| Argument          | Type   | Default                                                 | Description                          |
+| ----------------- | ------ | ------------------------------------------------------- | ------------------------------------ |
+| `--icon-classify` | bool   | `true`                                                  | Enable icon meaning classification   |
+| `--object-detect` | bool   | `true`                                                  | Enable object detection              |
+| `--detect-model`  | String | `resources/object-detection/yolov8s-worldv2.onnx`       | YOLO model path                      |
+| `--detect-labels` | String | `resources/object-detection/yolov8s-worldv2_labels.txt` | YOLO labels file path                |
+| `--detect-conf`   | f32    | `0.2`                                                   | Detection confidence threshold (0~1) |
+| `--models-dir`    | String | `resources`                                             | Model resource root directory        |
 
 ### Disabling Features
 
@@ -251,15 +261,15 @@ Object detection (YOLO-World) and OCR run on **background threads** in parallel 
 
 Detects 7 types of UI elements:
 
-| Category     | Description                              |
-| ------------ | ---------------------------------------- |
-| **Block**    | Container blocks (cards, list items, nav bars) |
-| **Button**   | Clickable buttons                        |
-| **Text**     | Text labels                              |
-| **Icon**     | Icons (small square elements)            |
-| **Image**    | Images                                   |
-| **Input**    | Input fields                             |
-| **List Item**| List items (with checkmark indicators)   |
+| Category      | Description                                    |
+| ------------- | ---------------------------------------------- |
+| **Block**     | Container blocks (cards, list items, nav bars) |
+| **Button**    | Clickable buttons                              |
+| **Text**      | Text labels                                    |
+| **Icon**      | Icons (small square elements)                  |
+| **Image**     | Images                                         |
+| **Input**     | Input fields                                   |
+| **List Item** | List items (with checkmark indicators)         |
 
 ### 2. OCR Text Recognition
 
@@ -311,6 +321,7 @@ resources/
 **Auto-download**: Missing model files are automatically downloaded from the Hugging Face repo ([chenjian-wei/quasivision-models](https://huggingface.co/chenjian-wei/quasivision-models)) on first run.
 
 **Mirror for China users**:
+
 ```bash
 set QUASIVISION_MODELS_URL=https://hf-mirror.com/chenjian-wei/quasivision-models/resolve/main
 cargo run -- --input image.png
@@ -345,9 +356,9 @@ The current design runs the full pipeline. You can disable ancillary features wi
 
 | Scenario                        | `--detect-conf` Recommended |
 | ------------------------------- | :-------------------------: |
-| Only high-confidence objects    |            0.5              |
+| Only high-confidence objects    |             0.5             |
 | Balanced precision & recall     |        0.2 (default)        |
-| Maximum recall (tolerate noise) |            0.1              |
+| Maximum recall (tolerate noise) |             0.1             |
 
 ### Q: Supported image formats?
 

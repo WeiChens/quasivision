@@ -1,11 +1,18 @@
+<h1 align="center">quasivision</h1>
+
+<p align="center">
+  <a href="https://github.com/chenjian-wei/quasivision/stargazers"><img src="https://img.shields.io/github/stars/chenjian-wei/quasivision?style=for-the-badge&logo=github" alt="Stars"></a>
+  <a href="https://github.com/chenjian-wei/quasivision/network/members"><img src="https://img.shields.io/github/forks/chenjian-wei/quasivision?style=for-the-badge&logo=github" alt="Forks"></a>
+  <a href="https://github.com/chenjian-wei/quasivision/issues"><img src="https://img.shields.io/github/issues/chenjian-wei/quasivision?style=for-the-badge&logo=github" alt="Issues"></a>
+  <a href="https://github.com/chenjian-wei/quasivision/blob/main/LICENSE"><img src="https://img.shields.io/github/license/chenjian-wei/quasivision?style=for-the-badge" alt="License"></a>
+</p>
+
 <p align="center">
   <a href="README.md">🇬🇧 English</a> · <a href="README-zh.md">🇨🇳 中文</a>
 </p>
 
-# quasivision 使用帮助
-
-> **quasivision** — 基于 Rust 的伪视觉理解工具。  
-> 从截图/UI 设计稿中自动检测 UI 组件（按钮、文本框、图标、图片等），执行 OCR 文字识别、物体检测、Icon 含义识别，并输出结构化描述。
+基于 Rust 的伪视觉理解工具。  
+可处理截图、UI 设计稿、真实世界照片等多类输入 —— 自动检测 UI 组件（按钮、文本框、图标、图片等），通过 OCR 识别文字内容，利用 YOLO-World 识别 254 类日常物体（人、车、手机、食物等），分类 81 种常见 Icon 含义，并输出结构化描述与可视化标注。
 
 ---
 
@@ -29,6 +36,9 @@
 # 单图检测
 cargo run -- --input 图片.png
 
+# 试试内置的演示图片
+cargo run -- --input demo/ui.jpg
+
 # 指定输出目录
 cargo run -- --input 图片.png --output ./result
 
@@ -42,10 +52,10 @@ cargo run -- --input ./screenshots/ --recursive
 ### 最简示例
 
 ```bash
-cargo run -- --input 9.png
+cargo run -- --input demo/ui.jpg
 ```
 
-输出到 `./output/9/` 目录下，包含检测结果文件。
+输出到 `./output/ui/` 目录下，包含检测结果文件。
 
 ---
 
@@ -53,21 +63,22 @@ cargo run -- --input 9.png
 
 ### 1. UI 检测 — 网页搜索结果页
 
-| 输入原图 | 检测结果 |
-|:--------:|:--------:|
+|        输入原图         |                    检测结果                    |
+| :---------------------: | :--------------------------------------------: |
 | ![ui-输入](demo/ui.jpg) | ![ui-可视化](demo/output/ui/visualization.jpg) |
 
 从搜索结果页面中检测出文本、图标、按钮等 UI 组件，并提取完整 OCR 文字内容。
 
 ### 2. 物体检测 — 真实世界照片
 
-| 输入原图 | 检测结果 |
-|:--------:|:--------:|
-| ![reality-输入](demo/reality.jpg) | ![reality-可视化](demo/output/reality/visualization.jpg) |
+|             输入原图              |                      检测结果                      |
+| :-------------------------------: | :------------------------------------------------: |
+| ![reality-输入](demo/reality.jpg) | ![reality-可视化](demo/output/reality/objects.jpg) |
 
 检测到 7 个物体及其层级关系（woman → child → hat/glasses/dress/coat），带置信度标注。
 
 **检测结果：**
+
 ```
 Objects (474×714) — 7 found:
 ├─ woman (54%)
@@ -81,8 +92,8 @@ Objects (474×714) — 7 found:
 
 ### 3. 混合场景 — 图库页面
 
-| 输入原图 | UI 检测结果 | 物体检测结果 |
-|:--------:|:----------:|:-----------:|
+|              输入原图              |                      UI 检测结果                       |                    物体检测结果                    |
+| :--------------------------------: | :----------------------------------------------------: | :------------------------------------------------: |
 | ![混合输入](demo/realityAndUi.jpg) | ![混合-UI](demo/output/realityAndUi/visualization.jpg) | ![混合-物体](demo/output/realityAndUi/objects.jpg) |
 
 图库类页面：UI 检测提取布局结构（图片网格、导航栏、文字标签），物体检测识别照片中的人物等主体。
