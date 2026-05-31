@@ -25,10 +25,13 @@ Analyzes screenshots, UI mockups, and real-world photos — detects UI component
 6. [Pipeline](#pipeline)
 7. [Core Features](#core-features)
 8. [FAQ](#faq)
+9. [Practical Examples](#practical-examples)
+10. [Proxy Configuration](#proxy-configuration)
+11. [License](#license)
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start <a id="quick-start"></a>
 
 ### Basic Usage
 
@@ -59,7 +62,7 @@ Results are written to `./output/ui/`.
 
 ---
 
-## 🖼️ Demo Gallery
+## 🖼️ Demo Gallery <a id="demo-gallery"></a>
 
 ### 1. UI Detection — Web Search Page
 
@@ -100,7 +103,7 @@ A stock photo gallery page: UI detection extracts the layout structure (image gr
 
 ---
 
-## 📤 Output Overview
+## 📤 Output Overview <a id="output-overview"></a>
 
 ### 5 Output Formats (`--format` flag)
 
@@ -127,7 +130,7 @@ A stock photo gallery page: UI detection extracts the layout structure (image gr
 
 ---
 
-## ⚙️ CLI Reference
+## ⚙️ CLI Reference <a id="cli-reference"></a>
 
 ### Basic Options
 
@@ -204,7 +207,7 @@ cargo run -- --input image.png --ocr false --object-detect false --icon-classify
 
 ---
 
-## 📁 Output File Structure
+## 📁 Output File Structure <a id="output-file-structure"></a>
 
 ### Single Image Output
 
@@ -223,7 +226,7 @@ output/
 
 ---
 
-## 🔄 Pipeline
+## 🔄 Pipeline <a id="pipeline"></a>
 
 ```
 Input Image
@@ -255,7 +258,7 @@ Object detection (YOLO-World) and OCR run on **background threads** in parallel 
 
 ---
 
-## 🧩 Core Features
+## 🧩 Core Features <a id="core-features"></a>
 
 ### 1. UI Element Detection (Main Feature)
 
@@ -298,7 +301,7 @@ Detects 7 types of UI elements:
 
 ---
 
-## ❓ FAQ
+## ❓ FAQ <a id="faq"></a>
 
 ### Q: Where do model files come from?
 
@@ -366,7 +369,7 @@ Default: `png`, `jpg`, `jpeg`, `jfif`. Customize with `--extensions`.
 
 ---
 
-## 💡 Practical Examples
+## 💡 Practical Examples <a id="practical-examples"></a>
 
 ```bash
 # App screenshot (recommended parameters)
@@ -390,7 +393,7 @@ cargo run -- -i document.png --paragraph true --text-max-h 0.15
 
 ---
 
-## 🌐 Proxy Configuration
+## 🌐 Proxy Configuration <a id="proxy-configuration"></a>
 
 On Windows, quasivision automatically detects system proxy settings (compatible with Clash, V2Ray, etc.). If your proxy requires manual configuration:
 
@@ -406,7 +409,7 @@ HTTP_PROXY=http://127.0.0.1:7890 HTTPS_PROXY=http://127.0.0.1:7890 cargo run -- 
 
 ---
 
-## 📄 License
+## 📄 License <a id="license"></a>
 
 - **Source code**: MIT © quasivision
 - **PP-OCRv5**: Apache 2.0 © PaddlePaddle
