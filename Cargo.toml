@@ -3,9 +3,10 @@ name = "quasivision"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "A Rust-based pseudo-visual understanding tool.  "
+description = "A Rust-based pseudo-visual understanding tool. Analyzes screenshots, UI mockups, and real-world photos — detects UI components, recognizes text via OCR, identifies objects with YOLO-World."
 repository = "https://github.com/WeiChens/quasivision"
 readme = "README.md"
+homepage = "https://github.com/WeiChens/quasivision"
 keywords = [
     "ui-detection",
     "ocr",
@@ -14,6 +15,7 @@ keywords = [
     "screenshot",
 ]
 categories = ["computer-vision", "multimedia::images"]
+exclude = ["demo/", "images/", "output/"]
 
 [dependencies]
 image = "0.25"
