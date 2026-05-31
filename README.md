@@ -1,337 +1,409 @@
-# quasivision 使用帮助
+<p align="center">
+  <a href="README.md">🇬🇧 English</a> · <a href="README-zh.md">🇨🇳 中文</a>
+</p>
 
-> **quasivision** — 基于 Rust 的伪视觉理解工具。  
-> 从截图/UI 设计稿中自动检测 UI 组件（按钮、文本框、图标、图片等），执行 OCR 文字识别、物体检测、Icon 含义识别，并输出结构化描述。
+# quasivision
 
----
-
-## 📋 目录
-
-1. [快速开始](#快速开始)
-2. [输出内容说明](#输出内容说明)
-3. [命令行参数详解](#命令行参数详解)
-4. [输出文件一览](#输出文件一览)
-5. [检测流程](#检测流程)
-6. [核心功能](#核心功能)
-7. [常见问题](#常见问题)
+> **quasivision** — A Rust-based pseudo-visual understanding tool.  
+> Automatically detects UI components (buttons, text fields, icons, images, etc.) from screenshots or UI design mockups, performs OCR text recognition, object detection, icon classification, and outputs structured descriptions.
 
 ---
 
-## 🚀 快速开始
+## 📋 Table of Contents
 
-### 基本用法
+1. [Quick Start](#quick-start)
+2. [Demo Gallery](#demo-gallery)
+3. [Output Overview](#output-overview)
+4. [CLI Reference](#cli-reference)
+5. [Output File Structure](#output-file-structure)
+6. [Pipeline](#pipeline)
+7. [Core Features](#core-features)
+8. [FAQ](#faq)
+
+---
+
+## 🚀 Quick Start
+
+### Basic Usage
 
 ```bash
-# 单图检测
-cargo run -- --input 图片.png
+# Single image
+cargo run -- --input image.png
 
-# 指定输出目录
-cargo run -- --input 图片.png --output ./result
+# Custom output directory
+cargo run -- --input image.png --output ./result
 
-# 批量处理目录中所有图片
+# Batch process all images in a directory
 cargo run -- --input ./screenshots/
 
-# 递归处理子目录
+# Recursive processing (include subdirectories)
 cargo run -- --input ./screenshots/ --recursive
 ```
 
-### 最简示例
+### Minimal Example
 
 ```bash
-cargo run -- --input 9.png
+cargo run -- --input screenshot.png
 ```
 
-输出到 `./output/9/` 目录下，包含检测结果文件。
+Results are written to `./output/screenshot/`.
 
 ---
 
-## 📤 输出内容说明
+## 🖼️ Demo Gallery
 
-### 5 种输出格式（`--format` 参数）
+### 1. UI Detection — Web Search Page
 
+| Input | Output |
+|:-----:|:------:|
+| ![ui-input](demo/ui.jpg) | ![ui-viz](demo/output/ui/visualization.jpg) |
+
+Detected UI components including text, icons, buttons, and structured blocks from a search result page — with full OCR text extraction.
+
+### 2. Object Detection — Real-World Photo
+
+| Input | Output |
+|:-----:|:------:|
+| ![reality-input](demo/reality.jpg) | ![reality-viz](demo/output/reality/visualization.jpg) |
+
+Detected objects with hierarchical relationships (woman → child → hat/glasses/dress/coat), visualized with bounding boxes and labels.
+
+**Detection result:**
 ```
---format standard    完整 JSON（含 id/parent/children 层级关系）
-         compact     压缩 JSON（短键名，体积小 ~50%）
-         ai          归一化坐标（0-1000），适合 LLM 输入
-         text        纯文本摘要，适合直接粘贴到 prompt
-         tree        [推荐] 树形嵌套结构，AI 一眼看懂 DOM 层级
+Objects (474×714) — 7 found:
+├─ woman (54%)
+   └─ child (21%)
+      ├─ hat (50%)
+      │  └─ face (39%)
+      │     └─ glasses (32%)
+      └─ dress (24%)
+         └─ coat (41%)
 ```
 
-**推荐使用 `tree` 格式**，同时输出 `elements.tree.json` 和 `elements.tree.txt`。
+### 3. Mixed Scenario — Stock Photo Gallery
 
-### 输出文件列表
+| Input | Output (UI) | Output (Objects) |
+|:-----:|:-----------:|:----------------:|
+| ![mixed-input](demo/realityAndUi.jpg) | ![mixed-ui](demo/output/realityAndUi/visualization.jpg) | ![mixed-obj](demo/output/realityAndUi/objects.jpg) |
 
-| 文件                                   | 来源        | 说明                                               |
-| -------------------------------------- | ----------- | -------------------------------------------------- |
-| `elements.tree.json` / `elements.json` | UI 元素检测 | 检测到的所有 UI 组件（按钮/文本/图标/Block 等）    |
-| `elements.tree.txt` / `elements.txt`   | UI 元素检测 | 纯文本格式摘要                                     |
-| `visualization.jpg`                    | UI 元素检测 | 可视化标注图（各组件用不同颜色边框标记）           |
-| `objects.tree.json` / `objects.json`   | 物体检测    | YOLO 检测的物体（人/车/手机等 254 类），含父子层级 |
-| `objects.tree.txt`                     | 物体检测    | 物体检测纯文本格式                                 |
-| `objects.jpg`                          | 物体检测    | 物体检测可视化标注图（带标签）                     |
+A stock photo gallery page: UI detection extracts the layout structure (image grid, navigation bar, text labels), while object detection identifies photo subjects (people, faces, etc.).
 
 ---
 
-## ⚙️ 命令行参数详解
+## 📤 Output Overview
 
-### 基础参数
+### 5 Output Formats (`--format` flag)
 
-| 参数           | 类型   | 默认值              | 说明                                                      |
-| -------------- | ------ | ------------------- | --------------------------------------------------------- |
-| `-i, --input`  | String | **必填**            | 输入图片路径或目录                                        |
-| `-o, --output` | String | `output`            | 输出根目录                                                |
-| `--format`     | String | `tree`              | 输出格式：`standard` / `compact` / `ai` / `text` / `tree` |
-| `--recursive`  | bool   | `false`             | 递归处理子目录中的图片                                    |
-| `--extensions` | String | `png,jpg,jpeg,jfif` | 图片扩展名过滤（逗号分隔）                                |
+```
+--format standard    Full JSON with id/parent/children hierarchy
+         compact     Minified JSON (short keys, ~50% smaller)
+         ai          Normalized coordinates (0-1000), LLM-friendly
+         text        Plain text summary, ready to paste into prompts
+         tree        [Recommended] Nested tree structure, AI-readable DOM
+```
 
-### UI 检测参数
+**`tree` format is recommended** — it generates both `elements.tree.json` and `elements.tree.txt`.
 
-| 参数                | 类型 | 默认值  | 说明                                   |
-| ------------------- | ---- | ------- | -------------------------------------- |
-| `--gradient`        | u8   | `4`     | 梯度阈值（dribbble/rico: 4, web: 1）   |
-| `--min-area`        | u32  | `55`    | 最小连通区域面积                       |
-| `--paragraph`       | bool | `false` | 是否启用段落合并                       |
-| `--remove-bar`      | bool | `true`  | 是否移除顶栏/底栏                      |
-| `--sub-component`   | bool | `true`  | 是否启用子组件检测（图片内部按钮检测） |
-| `--synthesize-text` | bool | `true`  | 是否为孤儿文本自动合成容器 Block       |
+### Output Files
 
-### 线条 / 矩形参数
+| File                                  | Source        | Description                                        |
+| ------------------------------------- | ------------- | -------------------------------------------------- |
+| `elements.tree.json` / `elements.json`| UI Detection  | All detected UI components (buttons/text/icons/etc) |
+| `elements.tree.txt` / `elements.txt`  | UI Detection  | Plain text summary                                 |
+| `visualization.jpg`                   | UI Detection  | Annotated image with color-coded component borders |
+| `objects.tree.json` / `objects.json`  | Object Detect | YOLO-detected objects (254 classes) with hierarchy |
+| `objects.tree.txt`                    | Object Detect | Object detection plain text summary                |
+| `objects.jpg`                         | Object Detect | Object detection visualization with labels         |
 
-| 参数                | 类型 | 默认值 | 说明                                         |
-| ------------------- | ---- | ------ | -------------------------------------------- |
-| `--line-thickness`  | u32  | `8`    | 线条最大粗细（像素）                         |
-| `--line-min-length` | f64  | `0.95` | 线条最小长度比例                             |
-| `--rec-evenness`    | f64  | `0.7`  | 矩形最小平整度                               |
-| `--rec-dent`        | f64  | `0.25` | 矩形最大凹陷比                               |
-| `--rec-corner-skip` | f64  | `0.08` | 圆角容错（0=严格直角，0.08~0.12=识别大圆角） |
+---
 
-### Block 检测参数
+## ⚙️ CLI Reference
 
-| 参数           | 类型 | 默认值 | 说明                   |
-| -------------- | ---- | ------ | ---------------------- |
-| `--block-side` | f64  | `0.15` | Block 边长占比阈值     |
-| `--block-grad` | u8   | `5`    | Block 嵌套检测梯度阈值 |
+### Basic Options
 
-### 文本参数
+| Argument        | Type   | Default             | Description                                  |
+| --------------- | ------ | ------------------- | -------------------------------------------- |
+| `-i, --input`   | String | **Required**        | Input image path or directory                 |
+| `-o, --output`  | String | `output`            | Output root directory                         |
+| `--format`      | String | `tree`              | Output format: `standard`/`compact`/`ai`/`text`/`tree` |
+| `--recursive`   | bool   | `false`             | Recursively process subdirectories            |
+| `--extensions`  | String | `png,jpg,jpeg,jfif` | Comma-separated image file extensions         |
 
-| 参数           | 类型 | 默认值 | 说明                           |
-| -------------- | ---- | ------ | ------------------------------ |
-| `--text-max-h` | f64  | `0.08` | 文本最大高度比（相对图片高度） |
-| `--text-gap`   | u32  | `10`   | 文本单词最大间距（像素）       |
-| `--ocr`        | bool | `true` | 是否启用 OCR 文字识别          |
+### UI Detection Options
 
-### Icon / 物体检测参数
+| Argument             | Type | Default | Description                                    |
+| -------------------- | ---- | ------- | ---------------------------------------------- |
+| `--gradient`         | u8   | `4`     | Gradient threshold (dribbble/rico: 4, web: 1)  |
+| `--min-area`         | u32  | `55`    | Minimum connected component area                |
+| `--paragraph`        | bool | `false` | Enable paragraph merging                        |
+| `--remove-bar`       | bool | `true`  | Remove top/bottom navigation bars               |
+| `--sub-component`    | bool | `true`  | Detect sub-components (buttons inside images)   |
+| `--synthesize-text`  | bool | `true`  | Auto-synthesize container blocks for orphan text|
 
-| 参数              | 类型   | 默认值                                                  | 说明                      |
-| ----------------- | ------ | ------------------------------------------------------- | ------------------------- |
-| `--icon-classify` | bool   | `true`                                                  | 是否启用 Icon 含义识别    |
-| `--object-detect` | bool   | `true`                                                  | 是否启用物体检测          |
-| `--detect-model`  | String | `resources/object-detection/yolov8s-worldv2.onnx`       | YOLO 模型路径             |
-| `--detect-labels` | String | `resources/object-detection/yolov8s-worldv2_labels.txt` | YOLO 标签文件路径         |
-| `--detect-conf`   | f32    | `0.2`                                                   | 物体检测置信度阈值（0~1） |
-| `--models-dir`    | String | `resources`                                             | 模型资源根目录            |
+### Line / Rectangle Options
 
-### 关闭特定功能
+| Argument             | Type | Default | Description                                       |
+| -------------------- | ---- | ------- | ------------------------------------------------- |
+| `--line-thickness`   | u32  | `8`     | Maximum line thickness (pixels)                    |
+| `--line-min-length`  | f64  | `0.95`  | Minimum line length ratio                          |
+| `--rec-evenness`     | f64  | `0.7`   | Minimum rectangle evenness                         |
+| `--rec-dent`         | f64  | `0.25`  | Maximum rectangle dent ratio                       |
+| `--rec-corner-skip`  | f64  | `0.08`  | Corner tolerance (0=strict right angle, 0.08~0.12=rounded) |
+
+### Block Detection Options
+
+| Argument      | Type | Default | Description                            |
+| ------------- | ---- | ------- | -------------------------------------- |
+| `--block-side`| f64  | `0.15`  | Block side length ratio threshold       |
+| `--block-grad`| u8   | `5`     | Block nesting detection gradient threshold |
+
+### Text Options
+
+| Argument     | Type | Default | Description                                |
+| ------------ | ---- | ------- | ------------------------------------------ |
+| `--text-max-h`| f64 | `0.08`  | Max text height ratio (relative to image height) |
+| `--text-gap` | u32  | `10`    | Max word gap (pixels)                      |
+| `--ocr`      | bool | `true`  | Enable OCR text recognition                |
+
+### Icon / Object Detection Options
+
+| Argument           | Type   | Default                                               | Description                        |
+| ------------------ | ------ | ----------------------------------------------------- | ---------------------------------- |
+| `--icon-classify`  | bool   | `true`                                                | Enable icon meaning classification |
+| `--object-detect`  | bool   | `true`                                                | Enable object detection            |
+| `--detect-model`   | String | `resources/object-detection/yolov8s-worldv2.onnx`     | YOLO model path                    |
+| `--detect-labels`  | String | `resources/object-detection/yolov8s-worldv2_labels.txt`| YOLO labels file path             |
+| `--detect-conf`    | f32    | `0.2`                                                 | Detection confidence threshold (0~1)|
+| `--models-dir`     | String | `resources`                                           | Model resource root directory       |
+
+### Disabling Features
 
 ```bash
-# 关闭 OCR（仅做 UI 结构检测，不识别文字）
-cargo run -- --input 图片.png --ocr false
+# Disable OCR (structure-only detection)
+cargo run -- --input image.png --ocr false
 
-# 关闭物体检测
-cargo run -- --input 图片.png --object-detect false
+# Disable object detection
+cargo run -- --input image.png --object-detect false
 
-# 关闭 Icon 含义识别
-cargo run -- --input 图片.png --icon-classify false
+# Disable icon classification
+cargo run -- --input image.png --icon-classify false
 
-# 仅做 UI 检测（全部可选功能关闭）
-cargo run -- --input 图片.png --ocr false --object-detect false --icon-classify false
+# UI detection only (all optional features off)
+cargo run -- --input image.png --ocr false --object-detect false --icon-classify false
 ```
 
 ---
 
-## 📁 输出文件一览
+## 📁 Output File Structure
 
-### 单张图片的输出目录结构
+### Single Image Output
 
 ```
 output/
-└── 图片名/                  # 以图片文件名（不含扩展名）命名
-    ├── elements.tree.json   # UI 元素树（JSON 格式）
-    ├── elements.tree.txt    # UI 元素树（文本格式）
-    ├── visualization.jpg    # UI 检测可视化图
-    ├── objects.tree.json    # 物体检测树（JSON 格式）
-    ├── objects.tree.txt     # 物体检测树（文本格式）
-    └── objects.jpg          # 物体检测可视化图
+└── image_name/             # Named after the input file (without extension)
+    ├── elements.tree.json  # UI element tree (JSON)
+    ├── elements.tree.txt   # UI element tree (text)
+    ├── visualization.jpg   # UI detection visualization
+    ├── objects.tree.json   # Object detection tree (JSON)
+    ├── objects.tree.txt    # Object detection tree (text)
+    └── objects.jpg         # Object detection visualization
 ```
 
-> 注意：`objects.*` 文件仅在 `--object-detect true` 且检测到物体时生成。
+> Note: `objects.*` files are only generated when `--object-detect true` and objects are found.
 
 ---
 
-## 🔄 检测流程
+## 🔄 Pipeline
 
 ```
-输入图片
+Input Image
   │
-  ├─ 1. 预处理 ─────────── 灰度化、去线条、去背景
+  ├─ 1. Preprocessing ────── Grayscale, line removal, background removal
   │
-  ├─ 2. 连通区域检测 ───── 梯度计算 → CCL 连通域
+  ├─ 2. Connected Component ─ Gradient → CCL (Connected Component Labeling)
   │
-  ├─ 3. 矩形/线条检测 ──── 识别按钮、输入框等规则形状
+  ├─ 3. Rect/Line Detection ─ Buttons, input fields, etc.
   │
-  ├─ 4. 合并过滤 ───────── 合并重叠区域、过滤噪声
+  ├─ 4. Merge & Filter ───── Merge overlapping regions, remove noise
   │
-  ├─ 5. 规则分类 ───────── Block / Button / Text / Icon / Image
+  ├─ 5. Classification ───── Block / Button / Text / Icon / Image
   │      │
-  │      ├─ Icon 分类器 ── 81 类常见 Icon 含义（ONNX Runtime）
+  │      ├─ Icon Classifier ── 81 common icon categories (ONNX Runtime)
   │      │
-  │      └─ OCR（后台） ── 文本识别（PaddleOCR 模型）
+  │      └─ OCR (background) ─ Text recognition (PaddleOCR)
   │
-  ├─ 6. 合并 ───────────── OCR 文本合并到 UI 元素
+  ├─ 6. Merge ────────────── Merge OCR text into UI elements
   │
-  ├─ 7. 颜色检测 ───────── 提取各元素的背景/前景色
+  ├─ 7. Color Detection ──── Extract background/foreground colors
   │
-  └─ 8. 输出 ───────────── 5 种格式 + 可视化标注
+  └─ 8. Output ───────────── 5 formats + visualization annotation
 ```
 
-### 并行执行
+### Parallel Execution
 
-物体检测（YOLO-World）和 OCR 在**后台线程**中与主流程并行执行，不增加额外等待时间。
-
----
-
-## 🧩 核心功能
-
-### 1. UI 元素检测（主体功能）
-
-检测 7 类 UI 元素：
-
-| 类别          | 说明                               |
-| ------------- | ---------------------------------- |
-| **Block**     | 容器区块（卡片、列表项、导航栏等） |
-| **Button**    | 可点击按钮                         |
-| **Text**      | 文字标签                           |
-| **Icon**      | 图标（小尺寸方形元素）             |
-| **Image**     | 图片                               |
-| **Input**     | 输入框                             |
-| **List Item** | 列表项（带勾选标记）               |
-
-### 2. OCR 文字识别
-
-- 基于 PaddleOCR 模型（PP-OCRv5）
-- Windows 平台支持 DirectML GPU 加速
-- 自动检测图片中的文字内容
-- 大文本保护：有意义的较长文字（>5 字符）不受高度限制过滤
-
-### 3. 物体检测（YOLO-World）
-
-- 基于 ONNX Runtime 的 YOLO-World 模型
-- 254 类常见物体识别（人、车、手机、食物、动物等）
-- 自动构建父子包含关系树
-- 输出可视化标注图 `objects.jpg`
-
-### 4. Icon 含义识别
-
-- 基于 ONNX 模型的 81 类 Icon 分类
-- 常见 UI Icon 含义识别（设置、搜索、分享、返回等）
-- 置信度 > 40% 显示候选含义
-
-### 5. 颜色检测
-
-- 自动提取各元素的背景/前景色
-- 输出十六进制颜色值
+Object detection (YOLO-World) and OCR run on **background threads** in parallel with the main pipeline, adding no extra wait time.
 
 ---
 
-## ❓ 常见问题
+## 🧩 Core Features
 
-### Q: 模型文件从哪里获取？
+### 1. UI Element Detection (Main Feature)
 
-模型文件位于 `resources/` 目录下：
+Detects 7 types of UI elements:
+
+| Category     | Description                              |
+| ------------ | ---------------------------------------- |
+| **Block**    | Container blocks (cards, list items, nav bars) |
+| **Button**   | Clickable buttons                        |
+| **Text**     | Text labels                              |
+| **Icon**     | Icons (small square elements)            |
+| **Image**    | Images                                   |
+| **Input**    | Input fields                             |
+| **List Item**| List items (with checkmark indicators)   |
+
+### 2. OCR Text Recognition
+
+- Based on PaddleOCR (PP-OCRv5) models
+- Windows: DirectML GPU acceleration supported
+- Auto-detects text in images
+- Long text protection: meaningful text (>5 chars) bypasses height filters
+
+### 3. Object Detection (YOLO-World)
+
+- ONNX Runtime-based YOLO-World model
+- 254 common object classes (people, cars, phones, food, animals, etc.)
+- Auto-builds parent-child containment trees
+- Outputs annotated `objects.jpg` visualization
+
+### 4. Icon Meaning Classification
+
+- 81-class icon classification via ONNX model
+- Common UI icon meanings (settings, search, share, back, etc.)
+- Confidence > 40% displays candidate meanings
+
+### 5. Color Detection
+
+- Auto-extracts background/foreground colors per element
+- Outputs hex color values
+
+---
+
+## ❓ FAQ
+
+### Q: Where do model files come from?
+
+Model files are located in the `resources/` directory:
 
 ```
 resources/
 ├── ocr-models/
-│   ├── ppocrv5_mobile_det.onnx   # OCR 检测模型
-│   ├── ppocrv5_mobile_rec.onnx   # OCR 识别模型
-│   └── ppocrv5_dict.txt          # 中文字典
+│   ├── ppocrv5_mobile_det.onnx   # OCR detection model
+│   ├── ppocrv5_mobile_rec.onnx   # OCR recognition model
+│   └── ppocrv5_dict.txt          # Chinese dictionary
 ├── icon-classifier/
-│   ├── icon_classifier.onnx      # Icon 分类模型
-│   └── labels.json               # 81 类标签
+│   ├── icon_classifier.onnx      # Icon classification model
+│   └── labels.json               # 81 class labels
 └── object-detection/
-    ├── yolov8s-worldv2.onnx      # YOLO 物体检测模型
-    └── yolov8s-worldv2_labels.txt # 254 类标签
+    ├── yolov8s-worldv2.onnx      # YOLO object detection model
+    └── yolov8s-worldv2_labels.txt # 254 class labels
 ```
 
-### Q: 输出结果坐标是多少？
+**Auto-download**: Missing model files are automatically downloaded from the Hugging Face repo ([chenjian-wei/quasivision-models](https://huggingface.co/chenjian-wei/quasivision-models)) on first run.
 
-默认输出原始图片像素坐标，格式为：
+**Mirror for China users**:
+```bash
+set QUASIVISION_MODELS_URL=https://hf-mirror.com/chenjian-wei/quasivision-models/resolve/main
+cargo run -- --input image.png
+```
+
+### Q: What coordinate system does the output use?
+
+Default output uses raw pixel coordinates:
 
 ```json
 {
-  "column_min": 100, // 左上角 x
-  "row_min": 200, // 左上角 y
-  "column_max": 300, // 右下角 x
-  "row_max": 400 // 右下角 y
+  "column_min": 100,
+  "row_min": 200,
+  "column_max": 300,
+  "row_max": 400
 }
 ```
 
-使用 `--format ai` 输出归一化坐标（0~1000）。
+Use `--format ai` for normalized coordinates (0–1000).
 
-### Q: 如何只检测物体（不做 UI 检测）？
+### Q: How can I run object detection only (without UI detection)?
 
-当前设计为全流水线运行，无法单独运行物体检测。可以通过设置 `--ocr false --icon-classify false` 关闭附属功能。
+The current design runs the full pipeline. You can disable ancillary features with `--ocr false --icon-classify false`.
 
-### Q: 如何提高检测质量？
+### Q: How to improve detection quality?
 
-- **梯度阈值**：网页截图用 `--gradient 1`，App 截图用 `--gradient 4`
-- **圆角识别**：大圆角元素用 `--rec-corner-skip 0.12`
-- **文本识别**：小字体用 `--text-max-h 0.12` 提高文本高度上限
+- **Gradient threshold**: Web pages: `--gradient 1`, App screenshots: `--gradient 4`
+- **Rounded corners**: Use `--rec-corner-skip 0.12` for large rounded elements
+- **Small text**: Increase `--text-max-h 0.12` to raise text height limit
 
-### Q: 置信度阈值调多少合适？
+### Q: What confidence threshold should I use?
 
-| 场景                         | `--detect-conf` 建议值 |
-| ---------------------------- | :--------------------: |
-| 只想看到高置信度物体         |          0.5           |
-| 平衡查准率和查全率           |      0.2（默认）       |
-| 尽量多地检测物体（容忍误检） |          0.1           |
+| Scenario                        | `--detect-conf` Recommended |
+| ------------------------------- | :-------------------------: |
+| Only high-confidence objects    |            0.5              |
+| Balanced precision & recall     |        0.2 (default)        |
+| Maximum recall (tolerate noise) |            0.1              |
 
-### Q: 支持的图片格式？
+### Q: Supported image formats?
 
-默认支持 `png`、`jpg`、`jpeg`、`jfif`。可通过 `--extensions` 自定义。
+Default: `png`, `jpg`, `jpeg`, `jfif`. Customize with `--extensions`.
 
 ---
 
-## 💡 实用示例
+## 💡 Practical Examples
 
 ```bash
-# App 截图检测（推荐参数）
+# App screenshot (recommended parameters)
 cargo run -- -i app.png --gradient 4 --format tree
 
-# Web 页面检测
+# Web page detection
 cargo run -- -i webpage.png --gradient 1 --rec-corner-skip 0.1
 
-# 批量处理 + 递归子目录
+# Batch processing with recursion
 cargo run -- -i ./screenshots/ --recursive --format tree
 
-# AI 友好输出 + 关闭不必要的功能
+# AI-friendly output, disable non-essential features
 cargo run -- -i ui.png --format ai --icon-classify false
 
-# 高精度检测（调低阈值，更多物体）
+# High-recall detection
 cargo run -- -i photo.jpg --detect-conf 0.1 --format tree
 
-# 带段落合并的文本检测
+# Paragraph-aware text detection
 cargo run -- -i document.png --paragraph true --text-max-h 0.15
 ```
 
 ---
 
-> **项目地址**：`E:/code/quasivision`  
-> **Cargo 运行**：确保在项目根目录下执行 `cargo run -- ...`
+## 🌐 Proxy Configuration
 
-## License
+On Windows, quasivision automatically detects system proxy settings (compatible with Clash, V2Ray, etc.). If your proxy requires manual configuration:
 
-- **源代码**: MIT © quasivision
+```bash
+# Windows (cmd)
+set HTTP_PROXY=http://127.0.0.1:7890
+set HTTPS_PROXY=http://127.0.0.1:7890
+cargo run -- --input image.png
+
+# macOS / Linux
+HTTP_PROXY=http://127.0.0.1:7890 HTTPS_PROXY=http://127.0.0.1:7890 cargo run -- --input image.png
+```
+
+---
+
+## 📄 License
+
+- **Source code**: MIT © quasivision
 - **PP-OCRv5**: Apache 2.0 © PaddlePaddle
 - **YOLOv8s-worldv2**: AGPL-3.0 © Ultralytics
 - **Icon Classifier**: MIT
+
+---
+
+## 📖 Also Available In
+
+- [中文文档 (Chinese)](README-zh.md)

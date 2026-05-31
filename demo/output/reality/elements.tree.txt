@@ -1,0 +1,7 @@
+UI Layout (474×714)
+[  0,  0 474×714] Root
+├─ [  0,333 474× 50] Blk bg(#586B94) [Primary]
+├─ [  0,385 474×112] Img bg(#5D6E96) [Primary]
+├─ [  0,498 474× 59] Blk bg(#52576D) [Primary]
+├─ [  0,560 249× 28] Blk bg(#381830) [Secondary]
+└─ [245,560 229× 28] Cmp bg(#5E555D) [Secondary]
