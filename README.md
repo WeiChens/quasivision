@@ -1,10 +1,10 @@
 <h1 align="center">quasivision</h1>
 
 <p align="center">
-  <a href="https://github.com/chenjian-wei/quasivision/stargazers"><img src="https://img.shields.io/github/stars/chenjian-wei/quasivision?style=for-the-badge&logo=github" alt="Stars"></a>
-  <a href="https://github.com/chenjian-wei/quasivision/network/members"><img src="https://img.shields.io/github/forks/chenjian-wei/quasivision?style=for-the-badge&logo=github" alt="Forks"></a>
-  <a href="https://github.com/chenjian-wei/quasivision/issues"><img src="https://img.shields.io/github/issues/chenjian-wei/quasivision?style=for-the-badge&logo=github" alt="Issues"></a>
-  <a href="https://github.com/chenjian-wei/quasivision/blob/main/LICENSE"><img src="https://img.shields.io/github/license/chenjian-wei/quasivision?style=for-the-badge" alt="License"></a>
+  <a href="https://github.com/WeiChens/quasivision/stargazers"><img src="https://img.shields.io/github/stars/WeiChens/quasivision?style=for-the-badge&logo=github" alt="Stars"></a>
+  <a href="https://github.com/WeiChens/quasivision/network/members"><img src="https://img.shields.io/github/forks/WeiChens/quasivision?style=for-the-badge&logo=github" alt="Forks"></a>
+  <a href="https://github.com/WeiChens/quasivision/issues"><img src="https://img.shields.io/github/issues/WeiChens/quasivision?style=for-the-badge&logo=github" alt="Issues"></a>
+  <a href="https://github.com/WeiChens/quasivision/blob/main/LICENSE"><img src="https://img.shields.io/github/license/WeiChens/quasivision?style=for-the-badge" alt="License"></a>
 </p>
 <p align="center">
   <a href="README.md">🇬🇧 English</a> · <a href="README-zh.md">🇨🇳 中文</a>
@@ -318,12 +318,12 @@ resources/
     └── yolov8s-worldv2_labels.txt # 254 class labels
 ```
 
-**Auto-download**: Missing model files are automatically downloaded from the Hugging Face repo ([chenjian-wei/quasivision-models](https://huggingface.co/chenjian-wei/quasivision-models)) on first run.
+**Auto-download**: Missing model files are automatically downloaded from the Hugging Face repo ([WeiChens/quasivision-models](https://huggingface.co/WeiChens/quasivision-models)) on first run.
 
 **Mirror for China users**:
 
 ```bash
-set QUASIVISION_MODELS_URL=https://hf-mirror.com/chenjian-wei/quasivision-models/resolve/main
+set QUASIVISION_MODELS_URL=https://hf-mirror.com/WeiChens/quasivision-models/resolve/main
 cargo run -- --input image.png
 ```
 

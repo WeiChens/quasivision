@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 description = "A Rust-based pseudo-visual understanding tool.  "
-repository = "https://github.com/chenjian-wei/quasivision"
+repository = "https://github.com/WeiChens/quasivision"
 readme = "README.md"
 keywords = [
     "ui-detection",
