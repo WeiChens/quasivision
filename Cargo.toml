@@ -1,0 +1,31 @@
+[package]
+name = "quasivision"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+image = "0.25"
+imageproc = "0.25"
+ab_glyph = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+anyhow = "1"
+ureq = { version = "3", features = ["gzip", "win-system-proxy"] }
+rayon = "1.10"
+
+# ── ONNX Runtime（Icon 含义识别 + YOLO 物体检测） ──
+ort = { version = "2.0.0-rc.12", features = ["ndarray"] }
+ndarray = "0.16"
+
+# ── oar-ocr 跨平台 OCR（基于 ONNX Runtime + PaddleOCR） ──
+# 各平台自动启用对应 GPU 加速
+[target.'cfg(target_os = "windows")'.dependencies]
+oar-ocr = { version = "0.6", features = ["directml"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+oar-ocr = { version = "0.6", features = ["coreml"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+oar-ocr = "0.6"
