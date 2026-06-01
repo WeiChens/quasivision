@@ -77,7 +77,37 @@ jobs:
       - name: Cargo build (release)
         run: cargo build --release --target ${{ matrix.target }}
 
-      # 5. 打包：二进制 + resources/ 模型文件
+      # 5. 下载模型文件（resources/ 在 .gitignore 中排除，需从 Hugging Face 获取）
+      - name: Download models
+        shell: bash
+        run: |
+          BASE_URL="https://huggingface.co/chenjian-wei/quasivision-models/resolve/main"
+          mkdir -p resources
+
+          # 模型文件列表（与 src/download.rs 中的 MODEL_FILES 保持一致）
+          MODELS=(
+            "ocr-models/ppocrv5_mobile_det.onnx"
+            "ocr-models/ppocrv5_mobile_rec.onnx"
+            "ocr-models/ppocrv5_dict.txt"
+            "icon-classifier/icon_classifier.onnx"
+            "icon-classifier/labels.json"
+            "object-detection/yolov8s-worldv2.onnx"
+            "object-detection/yolov8s-worldv2_labels.txt"
+          )
+
+          for rel in "${MODELS[@]}"; do
+            local="resources/$rel"
+            mkdir -p "$(dirname "$local")"
+            if [ ! -f "$local" ]; then
+              echo "  [download] ↓ $rel"
+              curl -fSL "$BASE_URL/$rel" -o "$local"
+            else
+              echo "  [skip] $rel already exists"
+            fi
+          done
+          echo "  [done] All model files downloaded to resources/"
+
+      # 6. 打包：二进制 + resources/ 模型文件
       - name: Package
         shell: bash
         run: |
@@ -107,7 +137,7 @@ jobs:
 
           echo "ASSET=$ARCHIVE" >> "$GITHUB_ENV"
 
-      # 6. 上传到 GitHub Actions artifacts（方便后续 release 步骤取用）
+      # 7. 上传到 GitHub Actions artifacts（方便后续 release 步骤取用）
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
