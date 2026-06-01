@@ -1,0 +1,173 @@
+# =============================================================================
+# quasivision — Release 自动构建 & 发布工作流
+# =============================================================================
+# 触发方式：
+#   1. 推送标签（推荐） git tag v0.1.0 && git push origin v0.1.0
+#   2. 手动触发：GitHub → Actions → Release → Run workflow
+# =============================================================================
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'             # 推送 v0.1.0, v1.2.3 等标签时触发
+  workflow_dispatch:      # 也支持手动在 GitHub 页面触发
+
+# ── 权限 ──────────────────────────────────────────────────────────────────────
+permissions:
+  contents: write         # 允许上传 release assets
+
+# ── 任务 ──────────────────────────────────────────────────────────────────────
+jobs:
+  # ── 1. 多平台构建 ────────────────────────────────────────────────────────────
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          # ── Windows x64 ────────────────────────────────────────────────────
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            ext: .exe
+            archive: zip
+            archive_ext: .zip
+
+          # ── macOS (Intel) ─────────────────────────────────────────────────
+          - target: x86_64-apple-darwin
+            os: macos-13            # macos-13 = Intel runner
+            ext: ''
+            archive: tar
+            archive_ext: .tar.gz
+
+          # ── macOS (Apple Silicon) ─────────────────────────────────────────
+          - target: aarch64-apple-darwin
+            os: macos-latest        # macos-latest 目前是 M1/M2 runner
+            ext: ''
+            archive: tar
+            archive_ext: .tar.gz
+
+          # ── Linux x64 ─────────────────────────────────────────────────────
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            ext: ''
+            archive: tar
+            archive_ext: .tar.gz
+
+    steps:
+      # 1. 检出代码
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2. 安装 Rust 工具链（含交叉编译 target）
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # 3. Linux: 安装交叉编译所需的系统库（仅 aarch64 时需要）
+      - name: Install Linux cross‑compile deps
+        if: runner.os == 'Linux' && matrix.target != 'x86_64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      # 4. 编译 release 版本
+      - name: Cargo build (release)
+        run: cargo build --release --target ${{ matrix.target }}
+
+      # 5. 打包：二进制 + resources/ 模型文件
+      - name: Package
+        shell: bash
+        run: |
+          BINARY="quasivision${{ matrix.ext }}"
+          ARCHIVE="quasivision-${{ matrix.target }}${{ matrix.archive_ext }}"
+          STAGING="quasivision-${{ matrix.target }}"
+
+          # 创建暂存目录
+          mkdir -p "$STAGING"
+
+          # 复制二进制
+          cp "target/${{ matrix.target }}/release/$BINARY" "$STAGING/"
+
+          # 复制资源（模型文件）
+          cp -r resources "$STAGING/"
+
+          # 复制 README / LICENSE
+          cp README.md "$STAGING/"
+          cp LICENSE "$STAGING/"
+
+          # ── 压缩 ──────────────────────────────────────────────────────────
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            7z a -tzip "$ARCHIVE" "$STAGING"
+          else
+            tar czf "$ARCHIVE" "$STAGING"
+          fi
+
+          echo "ASSET=$ARCHIVE" >> "$GITHUB_ENV"
+
+      # 6. 上传到 GitHub Actions artifacts（方便后续 release 步骤取用）
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: quasivision-${{ matrix.target }}
+          path: quasivision-${{ matrix.target }}${{ matrix.archive_ext }}
+
+  # ── 2. 创建 Release 并上传所有构建产物 ───────────────────────────────────────
+  release:
+    name: Create Release & Upload Assets
+    needs: build                     # 等所有 build 完成后再执行
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'  # 只在 push tag 时创建 release
+
+    steps:
+      # 下载所有平台的构建产物
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      # 列出下载的文件
+      - name: List artifacts
+        run: ls -lhR
+
+      # 提取版本号（去掉前缀 "v"）
+      - name: Get version
+        id: version
+        run: echo "tag=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      # 生成 Release 正文（自动读取变更日志或使用默认文本）
+      - name: Generate release notes
+        id: notes
+        run: |
+          cat << 'EOF' > RELEASE_NOTES.md
+          ## quasivision ${{ steps.version.outputs.tag }}
+
+          ### 📦 下载说明
+          根据你的操作系统选择对应文件：
+
+          | 平台 | 文件 |
+          |------|------|
+          | Windows x64 | `quasivision-x86_64-pc-windows-msvc.zip` |
+          | macOS Intel | `quasivision-x86_64-apple-darwin.tar.gz` |
+          | macOS Apple Silicon | `quasivision-aarch64-apple-darwin.tar.gz` |
+          | Linux x64 | `quasivision-x86_64-unknown-linux-gnu.tar.gz` |
+
+          ### 🚀 使用方式
+          1. 下载对应平台的压缩包并解压
+          2. 命令行运行：`./quasivision --input 图片路径`
+
+          > 首次运行时会自动下载 ONNX Runtime 运行库，请确保网络畅通。
+          EOF
+
+      # 创建 Release 并上传所有 asset
+      - name: Create Release & Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: quasivision ${{ github.ref_name }}
+          body_path: RELEASE_NOTES.md
+          files: |
+            quasivision-*/quasivision-*.zip
+            quasivision-*/quasivision-*.tar.gz
+          draft: false
+          prerelease: false
