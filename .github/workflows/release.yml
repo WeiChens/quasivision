@@ -35,15 +35,17 @@ jobs:
             archive_ext: .zip
 
           # ── macOS (Intel) ─────────────────────────────────────────────────
+          # 注意: ort 没有为 Intel Mac 提供预编译 ONNX Runtime，
+          #       需要从源码编译（设置 ORT_DYLIB_FROM_SOURCE=1）
           - target: x86_64-apple-darwin
-            os: macos-14 # macos-14 = Intel runner
+            os: macos-13            # macos-13 = Intel x86_64 runner
             ext: ''
             archive: tar
             archive_ext: .tar.gz
 
           # ── macOS (Apple Silicon) ─────────────────────────────────────────
           - target: aarch64-apple-darwin
-            os: macos-latest # macos-latest 目前是 M1/M2 runner
+            os: macos-latest        # macos-latest 目前是 Apple Silicon runner
             ext: ''
             archive: tar
             archive_ext: .tar.gz
@@ -73,11 +75,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu
 
-      # 4. 编译 release 版本
+      # 4. macOS Intel: 安装 ONNX Runtime 源码编译依赖
+      #    ort 没有为 x86_64-apple-darwin 提供预编译包，需从源码构建
+      - name: Install ORT build deps (macOS Intel)
+        if: matrix.target == 'x86_64-apple-darwin'
+        run: |
+          brew install cmake ninja
+
+      # 5. 编译 release 版本
+      #    Intel Mac 需从源码编译 ONNX Runtime，耗时较长（~30min）
       - name: Cargo build (release)
         run: cargo build --release --target ${{ matrix.target }}
+        env:
+          ORT_DYLIB_FROM_SOURCE: ${{ matrix.target == 'x86_64-apple-darwin' && '1' || '' }}
 
-      # 5. 下载模型文件（resources/ 在 .gitignore 中排除，需从 Hugging Face 获取）
+      # 6. 下载模型文件（resources/ 在 .gitignore 中排除，需从 Hugging Face 获取）
       - name: Download models
         shell: bash
         run: |
@@ -107,7 +119,7 @@ jobs:
           done
           echo "  [done] All model files downloaded to resources/"
 
-      # 6. 打包：二进制 + resources/ 模型文件
+      # 7. 打包：二进制 + resources/ 模型文件
       - name: Package
         shell: bash
         run: |
@@ -137,7 +149,7 @@ jobs:
 
           echo "ASSET=$ARCHIVE" >> "$GITHUB_ENV"
 
-      # 7. 上传到 GitHub Actions artifacts（方便后续 release 步骤取用）
+      # 8. 上传到 GitHub Actions artifacts（方便后续 release 步骤取用）
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
