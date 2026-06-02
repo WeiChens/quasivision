@@ -11,12 +11,12 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'             # 推送 v0.1.0, v1.2.3 等标签时触发
-  workflow_dispatch:      # 也支持手动在 GitHub 页面触发
+      - 'v*' # 推送 v0.1.0, v1.2.3 等标签时触发
+  workflow_dispatch: # 也支持手动在 GitHub 页面触发
 
 # ── 权限 ──────────────────────────────────────────────────────────────────────
 permissions:
-  contents: write         # 允许上传 release assets
+  contents: write # 允许上传 release assets
 
 # ── 任务 ──────────────────────────────────────────────────────────────────────
 jobs:
@@ -36,14 +36,14 @@ jobs:
 
           # ── macOS (Intel) ─────────────────────────────────────────────────
           - target: x86_64-apple-darwin
-            os: macos-13            # macos-13 = Intel runner
+            os: macos-14 # macos-14 = Intel runner
             ext: ''
             archive: tar
             archive_ext: .tar.gz
 
           # ── macOS (Apple Silicon) ─────────────────────────────────────────
           - target: aarch64-apple-darwin
-            os: macos-latest        # macos-latest 目前是 M1/M2 runner
+            os: macos-latest # macos-latest 目前是 M1/M2 runner
             ext: ''
             archive: tar
             archive_ext: .tar.gz
@@ -147,9 +147,9 @@ jobs:
   # ── 2. 创建 Release 并上传所有构建产物 ───────────────────────────────────────
   release:
     name: Create Release & Upload Assets
-    needs: build                     # 等所有 build 完成后再执行
+    needs: build # 等所有 build 完成后再执行
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'  # 只在 push tag 时创建 release
+    if: github.event_name == 'push' # 只在 push tag 时创建 release
 
     steps:
       # 下载所有平台的构建产物
