@@ -93,7 +93,9 @@ jobs:
             mkdir -p "$(dirname "$local")"
             if [ ! -f "$local" ]; then
               echo "  [download] ↓ $rel"
-              curl -fSL "$BASE_URL/$rel" -o "$local"
+              # 重试 5 次，初始等待 10s（应对 Hugging Face 限流 429）
+              curl -fSL --retry 5 --retry-delay 10 --retry-max-time 120 \
+                "$BASE_URL/$rel" -o "$local"
             else
               echo "  [skip] $rel already exists"
             fi
@@ -142,7 +144,7 @@ jobs:
     name: Create Release & Upload Assets
     needs: build # 等所有 build 完成后再执行
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' # 只在 push tag 时创建 release
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' # push tag 或手动触发都创建 release
 
     steps:
       # 下载所有平台的构建产物
