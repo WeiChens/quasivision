@@ -35,10 +35,11 @@ jobs:
             archive_ext: .zip
 
           # ── macOS (Intel) ─────────────────────────────────────────────────
-          # 注意: ort 没有为 Intel Mac 提供预编译 ONNX Runtime，
+          # 注意: 已无 Intel runner，在 ARM runner 上交叉编译 x86_64
+          #       ort 没有为 Intel Mac 提供预编译 ONNX Runtime，
           #       需要从源码编译（设置 ORT_DYLIB_FROM_SOURCE=1）
           - target: x86_64-apple-darwin
-            os: macos-13            # macos-13 = Intel x86_64 runner
+            os: macos-14            # ARM runner，交叉编译 x86_64
             ext: ''
             archive: tar
             archive_ext: .tar.gz
@@ -77,17 +78,22 @@ jobs:
 
       # 4. macOS Intel: 安装 ONNX Runtime 源码编译依赖
       #    ort 没有为 x86_64-apple-darwin 提供预编译包，需从源码构建
-      - name: Install ORT build deps (macOS Intel)
+      #    当前在 ARM runner 上交叉编译 x86_64
+      - name: Install ORT build deps (macOS Intel cross-compile)
         if: matrix.target == 'x86_64-apple-darwin'
         run: |
           brew install cmake ninja
 
       # 5. 编译 release 版本
       #    Intel Mac 需从源码编译 ONNX Runtime，耗时较长（~30min）
+      #    当前在 ARM runner 上交叉编译 x86_64
       - name: Cargo build (release)
         run: cargo build --release --target ${{ matrix.target }}
         env:
+          # 强制从源码编译 ONNX Runtime（Intel Mac 无预编译包）
           ORT_DYLIB_FROM_SOURCE: ${{ matrix.target == 'x86_64-apple-darwin' && '1' || '' }}
+          # ARM→x86_64 交叉编译时指定架构
+          CMAKE_OSX_ARCHITECTURES: ${{ matrix.target == 'x86_64-apple-darwin' && 'x86_64' || '' }}
 
       # 6. 下载模型文件（resources/ 在 .gitignore 中排除，需从 Hugging Face 获取）
       - name: Download models
