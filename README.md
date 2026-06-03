@@ -11,7 +11,7 @@
 </p>
 
 A Rust-based pseudo-visual understanding tool.  
-Analyzes screenshots, UI mockups, and real-world photos — detects UI components (buttons, text fields, icons, images, etc.), recognizes text via OCR, identifies 254 classes of everyday objects (people, cars, phones, food, etc.) with YOLO-World, classifies 81 types of icon meanings, and outputs structured descriptions with visual annotations.
+Analyzes screenshots, UI mockups, and real-world photos — detects UI components (buttons, text fields, icons, images, etc.), recognizes text via OCR, identifies 860 classes of everyday objects (people, cars, phones, food, etc.) with YOLOE-26n, classifies 81 types of icon meanings, and outputs structured descriptions with visual annotations.
 
 ---
 
@@ -78,19 +78,18 @@ Detected UI components including text, icons, buttons, and structured blocks fro
 | :--------------------------------: | :---------------------------------------------: |
 | ![reality-input](demo/reality.jpg) | ![reality-viz](demo/output/reality/objects.jpg) |
 
-Detected objects with hierarchical relationships (woman → child → hat/glasses/dress/coat), visualized with bounding boxes and labels.
+Detected 6 objects with hierarchical relationships (person → cap/hat/glasses/glove/jacket), visualized with bounding boxes and labels.
 
 **Detection result:**
 
 ```
-Objects (474×714) — 7 found:
-├─ woman (54%)
-   └─ child (21%)
-      ├─ hat (50%)
-      │  └─ face (39%)
-      │     └─ glasses (32%)
-      └─ dress (24%)
-         └─ coat (41%)
+Objects (474×714) — 6 found:
+└─ [  0,278 433×436] person (87%)
+   ├─ [111,277 118× 93] cap (39%)
+   │  └─ [111,277 118× 93] hat (82%)
+   │     └─ [112,345  88× 38] glasses (65%)
+   ├─ [  1,649  46× 65] glove (21%)
+   └─ [ 55,342 373×372] jacket (20%)
 ```
 
 ### 3. Mixed Scenario — Stock Photo Gallery
@@ -124,7 +123,7 @@ A stock photo gallery page: UI detection extracts the layout structure (image gr
 | `elements.tree.json` / `elements.json` | UI Detection  | All detected UI components (buttons/text/icons/etc) |
 | `elements.tree.txt` / `elements.txt`   | UI Detection  | Plain text summary                                  |
 | `visualization.jpg`                    | UI Detection  | Annotated image with color-coded component borders  |
-| `objects.tree.json` / `objects.json`   | Object Detect | YOLO-detected objects (254 classes) with hierarchy  |
+| `objects.tree.json` / `objects.json`   | Object Detect | YOLOE-detected objects (860 classes) with hierarchy |
 | `objects.tree.txt`                     | Object Detect | Object detection plain text summary                 |
 | `objects.jpg`                          | Object Detect | Object detection visualization with labels          |
 
@@ -184,8 +183,8 @@ A stock photo gallery page: UI detection extracts the layout structure (image gr
 | ----------------- | ------ | ------------------------------------------------------- | ------------------------------------ |
 | `--icon-classify` | bool   | `true`                                                  | Enable icon meaning classification   |
 | `--object-detect` | bool   | `true`                                                  | Enable object detection              |
-| `--detect-model`  | String | `resources/object-detection/yolov8s-worldv2.onnx`       | YOLO model path                      |
-| `--detect-labels` | String | `resources/object-detection/yolov8s-worldv2_labels.txt` | YOLO labels file path                |
+| `--detect-model`  | String | `resources/object-detection/yoloe-26n-seg-dynamic.onnx` | YOLOE model path                     |
+| `--detect-labels` | String | `resources/object-detection/yoloe-26n_classes.txt`      | YOLOE labels file path               |
 | `--detect-conf`   | f32    | `0.2`                                                   | Detection confidence threshold (0~1) |
 | `--models-dir`    | String | `resources`                                             | Model resource root directory        |
 
@@ -254,7 +253,7 @@ Input Image
 
 ### Parallel Execution
 
-Object detection (YOLO-World) and OCR run on **background threads** in parallel with the main pipeline, adding no extra wait time.
+Object detection (YOLOE-26n) and OCR run on **background threads** in parallel with the main pipeline, adding no extra wait time.
 
 ---
 
@@ -281,12 +280,13 @@ Detects 7 types of UI elements:
 - Auto-detects text in images
 - Long text protection: meaningful text (>5 chars) bypasses height filters
 
-### 3. Object Detection (YOLO-World)
+### 3. Object Detection (YOLOE-26n)
 
-- ONNX Runtime-based YOLO-World model
-- 254 common object classes (people, cars, phones, food, animals, etc.)
+- ONNX Runtime-based YOLOE-26n model (dynamic input, end-to-end NMS)
+- 860 common object classes (people, cars, phones, food, animals, etc.)
 - Auto-builds parent-child containment trees
 - Outputs annotated `objects.jpg` visualization
+- **77% smaller** than the previous YOLO-World model (11.1 MB vs 49.5 MB)
 
 ### 4. Icon Meaning Classification
 
@@ -317,8 +317,8 @@ resources/
 │   ├── icon_classifier.onnx      # Icon classification model
 │   └── labels.json               # 81 class labels
 └── object-detection/
-    ├── yolov8s-worldv2.onnx      # YOLO object detection model
-    └── yolov8s-worldv2_labels.txt # 254 class labels
+    ├── yoloe-26n-seg-dynamic.onnx # YOLOE-26n object detection model (11 MB)
+    └── yoloe-26n_classes.txt     # 860 class labels
 ```
 
 **Auto-download**: Missing model files are automatically downloaded from the Hugging Face repo ([WeiChens/quasivision-models](https://huggingface.co/WeiChens/quasivision-models)) on first run.
@@ -413,7 +413,7 @@ HTTP_PROXY=http://127.0.0.1:7890 HTTPS_PROXY=http://127.0.0.1:7890 cargo run -- 
 
 - **Source code**: MIT © quasivision
 - **PP-OCRv5**: Apache 2.0 © PaddlePaddle
-- **YOLOv8s-worldv2**: AGPL-3.0 © Ultralytics
+- **YOLOE-26n-seg**: AGPL-3.0 © Ultralytics
 - **Icon Classifier**: MIT
 
 ---

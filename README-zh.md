@@ -12,7 +12,7 @@
 </p>
 
 基于 Rust 的伪视觉理解工具。  
-可处理截图、UI 设计稿、真实世界照片等多类输入 —— 自动检测 UI 组件（按钮、文本框、图标、图片等），通过 OCR 识别文字内容，利用 YOLO-World 识别 254 类日常物体（人、车、手机、食物等），分类 81 种常见 Icon 含义，并输出结构化描述与可视化标注。
+可处理截图、UI 设计稿、真实世界照片等多类输入 —— 自动检测 UI 组件（按钮、文本框、图标、图片等），通过 OCR 识别文字内容，利用 YOLOE-26n 识别 860 类日常物体（人、车、手机、食物等），分类 81 种常见 Icon 含义，并输出结构化描述与可视化标注。
 
 ---
 
@@ -77,19 +77,18 @@ cargo run -- --input demo/ui.jpg
 | :-------------------------------: | :------------------------------------------------: |
 | ![reality-输入](demo/reality.jpg) | ![reality-可视化](demo/output/reality/objects.jpg) |
 
-检测到 7 个物体及其层级关系（woman → child → hat/glasses/dress/coat），带置信度标注。
+检测到 6 个物体及其层级关系（person → cap/hat/glasses/glove/jacket），带置信度标注。
 
 **检测结果：**
 
 ```
-Objects (474×714) — 7 found:
-├─ woman (54%)
-   └─ child (21%)
-      ├─ hat (50%)
-      │  └─ face (39%)
-      │     └─ glasses (32%)
-      └─ dress (24%)
-         └─ coat (41%)
+Objects (474×714) — 6 found:
+└─ [  0,278 433×436] person (87%)
+   ├─ [111,277 118× 93] cap (39%)
+   │  └─ [111,277 118× 93] hat (82%)
+   │     └─ [112,345  88× 38] glasses (65%)
+   ├─ [  1,649  46× 65] glove (21%)
+   └─ [ 55,342 373×372] jacket (20%)
 ```
 
 ### 3. 混合场景 — 图库页面
@@ -118,14 +117,14 @@ Objects (474×714) — 7 found:
 
 ### 输出文件列表
 
-| 文件                                   | 来源        | 说明                                               |
-| -------------------------------------- | ----------- | -------------------------------------------------- |
-| `elements.tree.json` / `elements.json` | UI 元素检测 | 检测到的所有 UI 组件（按钮/文本/图标/Block 等）    |
-| `elements.tree.txt` / `elements.txt`   | UI 元素检测 | 纯文本格式摘要                                     |
-| `visualization.jpg`                    | UI 元素检测 | 可视化标注图（各组件用不同颜色边框标记）           |
-| `objects.tree.json` / `objects.json`   | 物体检测    | YOLO 检测的物体（人/车/手机等 254 类），含父子层级 |
-| `objects.tree.txt`                     | 物体检测    | 物体检测纯文本格式                                 |
-| `objects.jpg`                          | 物体检测    | 物体检测可视化标注图（带标签）                     |
+| 文件                                   | 来源        | 说明                                                |
+| -------------------------------------- | ----------- | --------------------------------------------------- |
+| `elements.tree.json` / `elements.json` | UI 元素检测 | 检测到的所有 UI 组件（按钮/文本/图标/Block 等）     |
+| `elements.tree.txt` / `elements.txt`   | UI 元素检测 | 纯文本格式摘要                                      |
+| `visualization.jpg`                    | UI 元素检测 | 可视化标注图（各组件用不同颜色边框标记）            |
+| `objects.tree.json` / `objects.json`   | 物体检测    | YOLOE 检测的物体（人/车/手机等 860 类），含父子层级 |
+| `objects.tree.txt`                     | 物体检测    | 物体检测纯文本格式                                  |
+| `objects.jpg`                          | 物体检测    | 物体检测可视化标注图（带标签）                      |
 
 ---
 
@@ -183,8 +182,8 @@ Objects (474×714) — 7 found:
 | ----------------- | ------ | ------------------------------------------------------- | ------------------------- |
 | `--icon-classify` | bool   | `true`                                                  | 是否启用 Icon 含义识别    |
 | `--object-detect` | bool   | `true`                                                  | 是否启用物体检测          |
-| `--detect-model`  | String | `resources/object-detection/yolov8s-worldv2.onnx`       | YOLO 模型路径             |
-| `--detect-labels` | String | `resources/object-detection/yolov8s-worldv2_labels.txt` | YOLO 标签文件路径         |
+| `--detect-model`  | String | `resources/object-detection/yoloe-26n-seg-dynamic.onnx` | YOLOE 模型路径            |
+| `--detect-labels` | String | `resources/object-detection/yoloe-26n_classes.txt`      | YOLOE 标签文件路径        |
 | `--detect-conf`   | f32    | `0.2`                                                   | 物体检测置信度阈值（0~1） |
 | `--models-dir`    | String | `resources`                                             | 模型资源根目录            |
 
@@ -253,7 +252,7 @@ output/
 
 ### 并行执行
 
-物体检测（YOLO-World）和 OCR 在**后台线程**中与主流程并行执行，不增加额外等待时间。
+物体检测（YOLOE-26n）和 OCR 在**后台线程**中与主流程并行执行，不增加额外等待时间。
 
 ---
 
@@ -280,12 +279,13 @@ output/
 - 自动检测图片中的文字内容
 - 大文本保护：有意义的较长文字（>5 字符）不受高度限制过滤
 
-### 3. 物体检测（YOLO-World）
+### 3. 物体检测（YOLOE-26n）
 
-- 基于 ONNX Runtime 的 YOLO-World 模型
-- 254 类常见物体识别（人、车、手机、食物、动物等）
+- 基于 ONNX Runtime 的 YOLOE-26n 模型（动态输入，端到端 NMS）
+- 860 类常见物体识别（人、车、手机、食物、动物等）
 - 自动构建父子包含关系树
 - 输出可视化标注图 `objects.jpg`
+- 模型体积相比上一代 YOLO-World **减少 77%**（11.1 MB vs 49.5 MB）
 
 ### 4. Icon 含义识别
 
@@ -316,8 +316,8 @@ resources/
 │   ├── icon_classifier.onnx      # Icon 分类模型
 │   └── labels.json               # 81 类标签
 └── object-detection/
-    ├── yolov8s-worldv2.onnx      # YOLO 物体检测模型
-    └── yolov8s-worldv2_labels.txt # 254 类标签
+    ├── yoloe-26n-seg-dynamic.onnx # YOLOE-26n 物体检测模型（11 MB）
+    └── yoloe-26n_classes.txt     # 860 类标签
 ```
 
 ### Q: 输出结果坐标是多少？
@@ -390,5 +390,5 @@ cargo run -- -i document.png --paragraph true --text-max-h 0.15
 
 - **源代码**: MIT © quasivision
 - **PP-OCRv5**: Apache 2.0 © PaddlePaddle
-- **YOLOv8s-worldv2**: AGPL-3.0 © Ultralytics
+- **YOLOE-26n-seg**: AGPL-3.0 © Ultralytics
 - **Icon Classifier**: MIT
