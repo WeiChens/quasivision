@@ -1,14 +1,26 @@
-// ── 物体检测 —— YOLO-World（基于 ort/ONNX Runtime） ──
+// ── 物体检测 —— YOLOE-26n（基于 ort/ONNX Runtime） ──
+//
+// 使用 yoloe-26n-seg 模型，支持动态输入尺寸。
+// 输出格式：(1, 300, 38)
+//   [0:4]  bbox (x1, y1, x2, y2) — letterbox 坐标
+//   [4]    max confidence（已 sigmoid）
+//   [5]    class label index（由 TopK 选出）
+//   [6:38] mask coefficients（分割用，检测忽略）
 
 use std::path::Path;
 use std::sync::{LazyLock, Mutex};
 
 use anyhow::{Context, Result};
 use image::{DynamicImage, GenericImageView};
-use ndarray::Array4;
 use ort::session::Session;
-use ort::value::Value;
+use ort::value::TensorRef;
 use serde::Serialize;
+
+/// YOLOE 默认推理尺寸（长边）
+const DEFAULT_IMGSZ: u32 = 640;
+
+/// NMS IoU 阈值（模型已内置 NMS，此为二次过滤）（模型已内置 NMS，此为二次过滤）
+const IOU_THRESH: f32 = 0.70;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Detection {
@@ -38,7 +50,9 @@ impl DetectionBbox {
 
     pub fn contained_in(&self, other: &DetectionBbox, threshold: f64) -> bool {
         let inter = self.intersection_area(other);
-        if inter <= 0.0 { return false; }
+        if inter <= 0.0 {
+            return false;
+        }
         let self_area = self.area();
         self_area > 0.0 && inter / self_area > threshold
     }
@@ -53,7 +67,9 @@ pub struct DetectionNode {
 }
 
 pub fn build_detection_tree(detections: &[Detection]) -> Vec<DetectionNode> {
-    if detections.is_empty() { return Vec::new(); }
+    if detections.is_empty() {
+        return Vec::new();
+    }
 
     let mut sorted: Vec<(usize, &Detection)> = detections.iter().enumerate().collect();
     sorted.sort_by(|(_, a), (_, b)| a.bbox.area().partial_cmp(&b.bbox.area()).unwrap());
@@ -80,7 +96,9 @@ pub fn build_detection_tree(detections: &[Detection]) -> Vec<DetectionNode> {
 
     fn build_node(idx: usize, detections: &[Detection], parent: &[Option<usize>]) -> DetectionNode {
         let det = &detections[idx];
-        let children: Vec<DetectionNode> = parent.iter().enumerate()
+        let children: Vec<DetectionNode> = parent
+            .iter()
+            .enumerate()
             .filter(|(_, &p)| p == Some(idx))
             .map(|(child_idx, _)| build_node(child_idx, detections, parent))
             .collect();
@@ -92,7 +110,9 @@ pub fn build_detection_tree(detections: &[Detection]) -> Vec<DetectionNode> {
         }
     }
 
-    parent.iter().enumerate()
+    parent
+        .iter()
+        .enumerate()
         .filter(|(_, &p)| p.is_none())
         .map(|(idx, _)| build_node(idx, detections, &parent))
         .collect()
@@ -107,22 +127,23 @@ struct GlobalDetectorData {
     class_names: Vec<String>,
 }
 
-static GLOBAL_DETECTOR: LazyLock<Mutex<Option<GlobalDetectorData>>> = LazyLock::new(|| Mutex::new(None));
+static GLOBAL_DETECTOR: LazyLock<Mutex<Option<GlobalDetectorData>>> =
+    LazyLock::new(|| Mutex::new(None));
 
 /// 模型目录结构指引（用于错误提示）
 const MODEL_DIR_HELP: &str = "\n\
 Expected directory structure:\n\
   {models_dir}/object-detection/\n\
-    yolov8s-worldv2.onnx\n\
-    yolov8s-worldv2_labels.txt\n\
-Download the YOLO model files and place them in the correct directory.";
+    yoloe-26n-seg.onnx\n\
+    yoloe-26n_classes.txt\n\
+Download the YOLOE model files and place them in the correct directory.";
 
-/// 初始化全局物体检测器（预加载 YOLO 模型 + 标签文件）。
+/// 初始化全局物体检测器（预加载 YOLOE 模型 + 标签文件）。
 /// 批处理时只需调用一次，之后每张图共享同一模型 Session。
 pub fn init_global(models_dir: &str) -> Result<()> {
     let dir = models_dir.trim_end_matches('/');
-    let model_str = format!("{}/object-detection/yolov8s-worldv2.onnx", dir);
-    let labels_str = format!("{}/object-detection/yolov8s-worldv2_labels.txt", dir);
+    let model_str = format!("{}/object-detection/yoloe-26n-seg.onnx", dir);
+    let labels_str = format!("{}/object-detection/yoloe-26n_classes.txt", dir);
     let model_path = Path::new(&model_str);
     let labels_path = Path::new(&labels_str);
 
@@ -142,13 +163,20 @@ pub fn init_global(models_dir: &str) -> Result<()> {
     }
 
     let class_names = load_labels_file(labels_path)?;
+    let num_classes = class_names.len();
     let session = load_model(model_path)?;
 
     let mut guard = GLOBAL_DETECTOR
         .lock()
         .map_err(|e| anyhow::anyhow!("[ObjectDetector] Lock error: {e}"))?;
-    *guard = Some(GlobalDetectorData { session, class_names });
-    println!("  [ObjectDetector] Global instance initialized");
+    *guard = Some(GlobalDetectorData {
+        session,
+        class_names,
+    });
+    println!(
+        "  [ObjectDetector] YOLOE-26n global instance initialized ({} classes)",
+        num_classes
+    );
     Ok(())
 }
 
@@ -162,7 +190,13 @@ pub fn clean_global() {
 fn try_global_inference(img: &DynamicImage, conf_threshold: f32) -> Option<Vec<Detection>> {
     let mut guard = GLOBAL_DETECTOR.lock().ok()?;
     let cached = guard.as_mut()?;
-    Some(infer_with_session(img, &mut cached.session, &cached.class_names, conf_threshold))
+    Some(infer_with_session(
+        img,
+        &mut cached.session,
+        &cached.class_names,
+        conf_threshold,
+        DEFAULT_IMGSZ,
+    ))
 }
 
 // ── 主函数 ──
@@ -184,19 +218,28 @@ pub fn run_object_detection(
     let labels_path = Path::new(labels_path);
 
     if !model_path.exists() {
-        eprintln!("  [ObjectDetector] Model not found at: {}.\n\
+        eprintln!(
+            "  [ObjectDetector] Model not found at: {}.\n\
                    Run `quasivision::init_models(\"resources\")` first or ensure the model file exists.",
-            model_path.display());
+            model_path.display()
+        );
         return Vec::new();
     }
     if !labels_path.exists() {
-        eprintln!("  [ObjectDetector] Labels not found at: {}.", labels_path.display());
+        eprintln!(
+            "  [ObjectDetector] Labels not found at: {}.",
+            labels_path.display()
+        );
         return Vec::new();
     }
 
     let class_names = match load_labels_file(labels_path) {
         Ok(names) => {
-            println!("  [ObjectDetector] Loaded {} classes from {}", names.len(), labels_path.display());
+            println!(
+                "  [ObjectDetector] Loaded {} classes from {}",
+                names.len(),
+                labels_path.display()
+            );
             names
         }
         Err(e) => {
@@ -213,97 +256,128 @@ pub fn run_object_detection(
         }
     };
 
-    infer_with_session(img, &mut session, &class_names, conf_threshold)
+    infer_with_session(img, &mut session, &class_names, conf_threshold, DEFAULT_IMGSZ)
 }
+
+// ── YOLOE-26n 推理核心 ──
 
 fn infer_with_session(
     img: &DynamicImage,
     session: &mut Session,
     class_names: &[String],
     conf_threshold: f32,
+    imgsz: u32,
 ) -> Vec<Detection> {
-    let num_classes = class_names.len();
     let (orig_w, orig_h) = img.dimensions();
-    let target_size = compute_optimal_size(orig_w, orig_h, 1280);
 
-    let (padded_rgb, scale, pad_left, pad_top) = match letterbox_preprocess(img, target_size) {
+    // 1. 预处理：letterbox + normalize
+    let (data, scale, pad_left, pad_top, _nw, _nh) = match letterbox_preprocess(img, imgsz) {
         Ok(r) => r,
-        Err(e) => { eprintln!("  [ObjectDetector] Preprocess failed: {}", e); return Vec::new(); }
+        Err(e) => {
+            eprintln!("  [ObjectDetector] Preprocess failed: {}", e);
+            return Vec::new();
+        }
+    };
+    let ts = imgsz as usize;
+
+    // 2. 构建输入 tensor
+    let input_tensor = match TensorRef::from_array_view(
+        ([1usize, 3, ts, ts], data.as_slice()),
+    ) {
+        Ok(t) => t.into_dyn(),
+        Err(e) => {
+            eprintln!("  [ObjectDetector] Create tensor failed: {}", e);
+            return Vec::new();
+        }
     };
 
-    let input_array = create_input_tensor(&padded_rgb, target_size);
-    let input_value = match Value::from_array(([1usize, 3, target_size as usize, target_size as usize], input_array.into_raw_vec_and_offset().0)) {
+    // 3. 推理
+    let outputs = match session.run(ort::inputs![input_tensor]) {
         Ok(v) => v,
-        Err(e) => { eprintln!("  [ObjectDetector] Create tensor failed: {}", e); return Vec::new(); }
+        Err(e) => {
+            eprintln!("  [ObjectDetector] Inference failed: {}", e);
+            return Vec::new();
+        }
     };
 
-    let outputs = match session.run(ort::inputs!["images" => input_value]) {
-        Ok(v) => v,
-        Err(e) => { eprintln!("  [ObjectDetector] Inference failed: {}", e); return Vec::new(); }
-    };
-
-    let output_value = match outputs.get("output0") {
-        Some(v) => v,
-        None => { eprintln!("  [ObjectDetector] Output 'output0' not found"); return Vec::new(); }
-    };
-
-    let (_shape, output_slice) = match output_value.try_extract_tensor::<f32>() {
+    // 4. 解析 output0: (1, 300, 38)
+    let o0 = match outputs[0].try_extract_array::<f32>() {
         Ok(t) => t,
-        Err(e) => { eprintln!("  [ObjectDetector] Failed to extract output: {}", e); return Vec::new(); }
+        Err(e) => {
+            eprintln!("  [ObjectDetector] Failed to extract output0: {}", e);
+            return Vec::new();
+        }
     };
 
-    let channels = 4 + num_classes;
-    let num_anchors = output_slice.len() / channels;
-    if output_slice.len() % channels != 0 {
-        eprintln!("  [ObjectDetector] Unexpected output size: {}", output_slice.len());
-        return Vec::new();
-    }
+    let num_dets = o0.shape().get(1).copied().unwrap_or(0);
 
     let mut raw_detections: Vec<Detection> = Vec::new();
-    for i in 0..num_anchors {
-        let cx = output_slice[i];
-        let cy = output_slice[num_anchors + i];
-        let w = output_slice[2 * num_anchors + i];
-        let h = output_slice[3 * num_anchors + i];
 
-        let mut best_class = 0usize;
-        let mut best_score = f32::NEG_INFINITY;
-        for c in 0..num_classes {
-            let score = output_slice[(4 + c) * num_anchors + i];
-            if score > best_score { best_score = score; best_class = c; }
+    for d in 0..num_dets {
+        // 格式: [bbox(4), max_score(1), class_label(1), mask_coeffs(32)]
+        let x1 = o0[[0, d, 0]];
+        let y1 = o0[[0, d, 1]];
+        let x2 = o0[[0, d, 2]];
+        let y2 = o0[[0, d, 3]];
+        let conf = o0[[0, d, 4]];
+        let class_id = o0[[0, d, 5]] as usize;
+
+        if conf < conf_threshold {
+            continue;
+        }
+        if x2 <= x1 || y2 <= y1 {
+            continue;
         }
 
-        if best_score < conf_threshold { continue; }
-        let (x1, y1, x2, y2) = (cx - w * 0.5, cy - h * 0.5, cx + w * 0.5, cy + h * 0.5);
-        if (x2 - x1) <= 0.0 || (y2 - y1) <= 0.0 { continue; }
+        let class_name = class_names
+            .get(class_id)
+            .cloned()
+            .unwrap_or_else(|| format!("class_{}", class_id));
 
         raw_detections.push(Detection {
-            class_name: class_names[best_class].clone(),
-            confidence: best_score,
-            bbox: DetectionBbox { x_min: x1, y_min: y1, x_max: x2, y_max: y2 },
+            class_name,
+            confidence: conf,
+            bbox: DetectionBbox {
+                x_min: x1,
+                y_min: y1,
+                x_max: x2,
+                y_max: y2,
+            },
         });
     }
 
-    if raw_detections.is_empty() { return Vec::new(); }
+    if raw_detections.is_empty() {
+        return Vec::new();
+    }
 
-    let kept = non_max_suppression(&raw_detections, 0.45);
-    kept.into_iter().map(|det| Detection {
-        class_name: det.class_name,
-        confidence: det.confidence,
-        bbox: DetectionBbox {
-            x_min: ((det.bbox.x_min - pad_left) / scale).clamp(0.0, orig_w as f32),
-            y_min: ((det.bbox.y_min - pad_top) / scale).clamp(0.0, orig_h as f32),
-            x_max: ((det.bbox.x_max - pad_left) / scale).clamp(0.0, orig_w as f32),
-            y_max: ((det.bbox.y_max - pad_top) / scale).clamp(0.0, orig_h as f32),
-        },
-    }).collect()
+    // 5. NMS（模型已内置 NMS，二次过滤确保干净）
+    let kept = non_max_suppression(&raw_detections, IOU_THRESH);
+
+    // 6. 将 letterbox 坐标映射回原图坐标
+    kept.into_iter()
+        .map(|det| Detection {
+            class_name: det.class_name,
+            confidence: det.confidence,
+            bbox: DetectionBbox {
+                x_min: ((det.bbox.x_min - pad_left as f32) / scale)
+                    .clamp(0.0, orig_w as f32),
+                y_min: ((det.bbox.y_min - pad_top as f32) / scale)
+                    .clamp(0.0, orig_h as f32),
+                x_max: ((det.bbox.x_max - pad_left as f32) / scale)
+                    .clamp(0.0, orig_w as f32),
+                y_max: ((det.bbox.y_max - pad_top as f32) / scale)
+                    .clamp(0.0, orig_h as f32),
+            },
+        })
+        .collect()
 }
 
 // ── 辅助函数 ──
 
 fn load_model(model_path: &Path) -> Result<Session> {
     let num_threads = std::thread::available_parallelism()
-        .map(|n| n.get().min(4)).unwrap_or(4);
+        .map(|n| n.get().min(4))
+        .unwrap_or(4);
 
     Session::builder()
         .map_err(|e| anyhow::anyhow!("Failed to create ORT session builder: {}", e))?
@@ -315,51 +389,72 @@ fn load_model(model_path: &Path) -> Result<Session> {
         .map_err(|e| anyhow::anyhow!("Failed to load model {}: {}", model_path.display(), e))
 }
 
-fn letterbox_preprocess(img: &DynamicImage, target_size: u32) -> Result<(Vec<u8>, f32, f32, f32)> {
+/// Letterbox 预处理：等比例缩放 + 边缘填充
+///
+/// 返回 (CHW RGB float32 数据, 缩放比例, 左填充, 上填充, 缩放后宽, 缩放后高)
+fn letterbox_preprocess(
+    img: &DynamicImage,
+    imgsz: u32,
+) -> Result<(Vec<f32>, f32, u32, u32, u32, u32)> {
     let (w, h) = img.dimensions();
-    let scale = target_size as f32 / w.max(h) as f32;
-    let (new_w, new_h) = ((w as f32 * scale).round() as u32, (h as f32 * scale).round() as u32);
-    let (pad_left, pad_top) = ((target_size - new_w) as f32 / 2.0, (target_size - new_h) as f32 / 2.0);
+    let scale = imgsz as f32 / w.max(h) as f32;
+    let nw = ((w as f32 * scale) as u32).max(1);
+    let nh = ((h as f32 * scale) as u32).max(1);
 
-    let rgb = img.to_rgb8();
-    let resized = image::imageops::resize(&rgb, new_w, new_h, image::imageops::FilterType::Triangle);
-    let mut canvas = image::ImageBuffer::from_pixel(target_size, target_size, image::Rgb([114, 114, 114]));
-    for y in 0..new_h {
-        for x in 0..new_w {
-            canvas.put_pixel(x + pad_left.round() as u32, y + pad_top.round() as u32, *resized.get_pixel(x, y));
+    let resized = img.resize_exact(nw, nh, image::imageops::FilterType::CatmullRom);
+
+    let pad_left = (imgsz - nw) / 2;
+    let pad_top = (imgsz - nh) / 2;
+    let ts = imgsz as usize;
+
+    // 创建填充画布（RGB，填充值 114）
+    let mut canvas = vec![114u8; ts * ts * 3];
+    let rgb = resized.to_rgb8();
+
+    for y in 0..nh {
+        for x in 0..nw {
+            let p = rgb.get_pixel(x, y);
+            let idx = ((pad_top + y) as usize * ts + (pad_left + x) as usize) * 3;
+            canvas[idx] = p[0]; // R
+            canvas[idx + 1] = p[1]; // G
+            canvas[idx + 2] = p[2]; // B
         }
     }
-    Ok((canvas.into_raw(), scale, pad_left, pad_top))
-}
 
-fn compute_optimal_size(w: u32, h: u32, max_cap: u32) -> u32 {
-    ((w.max(h) + 31) / 32 * 32).clamp(64, max_cap)
-}
-
-fn create_input_tensor(rgb_data: &[u8], size: u32) -> Array4<f32> {
-    let n = size as usize;
-    let mut tensor = Array4::<f32>::zeros((1, 3, n, n));
-    for y in 0..n {
-        for x in 0..n {
-            let idx = (y * n + x) * 3;
-            tensor[[0, 0, y, x]] = rgb_data[idx] as f32 / 255.0;
-            tensor[[0, 1, y, x]] = rgb_data[idx + 1] as f32 / 255.0;
-            tensor[[0, 2, y, x]] = rgb_data[idx + 2] as f32 / 255.0;
-        }
+    // 转换为 CHW float32，归一化到 [0, 1]
+    let n = ts * ts;
+    let mut data = vec![0.0f32; 3 * n];
+    for i in 0..n {
+        data[i] = canvas[i * 3] as f32 / 255.0; // R channel
+        data[n + i] = canvas[i * 3 + 1] as f32 / 255.0; // G channel
+        data[2 * n + i] = canvas[i * 3 + 2] as f32 / 255.0; // B channel
     }
-    tensor
+
+    Ok((data, scale, pad_left, pad_top, nw, nh))
 }
 
 fn iou(a: &DetectionBbox, b: &DetectionBbox) -> f32 {
-    let inter = ((a.x_max.min(b.x_max) - a.x_min.max(b.x_min)).max(0.0))
-              * ((a.y_max.min(b.y_max) - a.y_min.max(b.y_min)).max(0.0));
+    let x1 = a.x_min.max(b.x_min);
+    let y1 = a.y_min.max(b.y_min);
+    let x2 = a.x_max.min(b.x_max);
+    let y2 = a.y_max.min(b.y_max);
+    if x2 <= x1 || y2 <= y1 {
+        return 0.0;
+    }
+    let inter = (x2 - x1) * (y2 - y1);
     let union = (a.x_max - a.x_min) * (a.y_max - a.y_min)
-              + (b.x_max - b.x_min) * (b.y_max - b.y_min) - inter;
-    if union <= 0.0 { 0.0 } else { inter / union }
+        + (b.x_max - b.x_min) * (b.y_max - b.y_min)
+        - inter;
+    if union <= 0.0 {
+        0.0
+    } else {
+        inter / union
+    }
 }
 
 fn non_max_suppression(detections: &[Detection], iou_threshold: f32) -> Vec<Detection> {
-    let mut class_indices: std::collections::HashMap<&str, Vec<usize>> = std::collections::HashMap::new();
+    let mut class_indices: std::collections::HashMap<&str, Vec<usize>> =
+        std::collections::HashMap::new();
     for (i, det) in detections.iter().enumerate() {
         class_indices.entry(det.class_name.as_str()).or_default().push(i);
     }
@@ -367,26 +462,49 @@ fn non_max_suppression(detections: &[Detection], iou_threshold: f32) -> Vec<Dete
     let mut keep_mask = vec![false; detections.len()];
     for (_class, indices) in &class_indices {
         let mut sorted = indices.clone();
-        sorted.sort_by(|&a, &b| detections[b].confidence.partial_cmp(&detections[a].confidence).unwrap());
+        sorted.sort_by(|&a, &b| {
+            detections[b]
+                .confidence
+                .partial_cmp(&detections[a].confidence)
+                .unwrap()
+        });
 
         let mut suppressed = vec![false; sorted.len()];
         for i in 0..sorted.len() {
-            if suppressed[i] { continue; }
+            if suppressed[i] {
+                continue;
+            }
             keep_mask[sorted[i]] = true;
             for j in (i + 1)..sorted.len() {
-                if !suppressed[j] && iou(&detections[sorted[i]].bbox, &detections[sorted[j]].bbox) > iou_threshold {
+                if !suppressed[j]
+                    && iou(&detections[sorted[i]].bbox, &detections[sorted[j]].bbox)
+                        > iou_threshold
+                {
                     suppressed[j] = true;
                 }
             }
         }
     }
-    detections.iter().enumerate().filter(|&(i, _)| keep_mask[i]).map(|(_, d)| d.clone()).collect()
+
+    detections
+        .iter()
+        .enumerate()
+        .filter(|&(i, _)| keep_mask[i])
+        .map(|(_, d)| d.clone())
+        .collect()
 }
 
 fn load_labels_file(path: &Path) -> Result<Vec<String>> {
     let raw = std::fs::read_to_string(path)
         .with_context(|| format!("Failed to read labels: {}", path.display()))?;
-    let labels: Vec<String> = raw.lines().map(str::trim).filter(|l| !l.is_empty()).map(str::to_string).collect();
-    if labels.is_empty() { anyhow::bail!("Labels file is empty: {}", path.display()); }
+    let labels: Vec<String> = raw
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .map(str::to_string)
+        .collect();
+    if labels.is_empty() {
+        anyhow::bail!("Labels file is empty: {}", path.display());
+    }
     Ok(labels)
 }

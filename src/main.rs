@@ -134,8 +134,8 @@ struct Args {
 /// 流水线运行参数（替代 `run_pipeline` 的散落参数）
 ///
 /// 物体检测模型路径由 `models_dir` 按约定自动推导：
-///   - 模型: `{models_dir}/object-detection/yolov8s-worldv2.onnx`
-///   - 标签: `{models_dir}/object-detection/yolov8s-worldv2_labels.txt`
+///   - 模型: `{models_dir}/object-detection/yoloe-26n-seg.onnx`
+///   - 标签: `{models_dir}/object-detection/yoloe-26n_classes.txt`
 struct RunOptions {
     /// UI 检测底层参数
     cfg: Config,
@@ -295,8 +295,8 @@ fn run_pipeline(img_path: &str, output_root: &str, opts: &RunOptions) -> anyhow:
         remove_bar: opts.is_remove_bar,
         sub_component: opts.enable_sub_component,
         synthesize_text: opts.enable_synthesize,
-        detect_model_path: format!("{}/object-detection/yolov8s-worldv2.onnx", models_dir),
-        detect_labels_path: format!("{}/object-detection/yolov8s-worldv2_labels.txt", models_dir),
+        detect_model_path: format!("{}/object-detection/yoloe-26n-seg.onnx", models_dir),
+        detect_labels_path: format!("{}/object-detection/yoloe-26n_classes.txt", models_dir),
         detect_conf: opts.detect_conf,
     };
 

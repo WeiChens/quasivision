@@ -29,8 +29,8 @@ const MODEL_FILES: &[&str] = &[
     "ocr-models/ppocrv5_dict.txt",
     "icon-classifier/icon_classifier.onnx",
     "icon-classifier/labels.json",
-    "object-detection/yolov8s-worldv2.onnx",
-    "object-detection/yolov8s-worldv2_labels.txt",
+    "object-detection/yoloe-26n-seg.onnx",
+    "object-detection/yoloe-26n_classes.txt",
 ];
 
 static DOWNLOAD_IN_PROGRESS: AtomicBool = AtomicBool::new(false);

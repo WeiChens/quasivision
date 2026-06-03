@@ -73,8 +73,8 @@ const MODEL_DIR_HELP: &str = "\n\
 Expected directory structure:\n\
   {models_dir}/\n\
     object-detection/\n\
-      yolov8s-worldv2.onnx\n\
-      yolov8s-worldv2_labels.txt\n\
+      yoloe-26n-seg.onnx\n\
+      yoloe-26n_classes.txt\n\
     icon-classifier/\n\
       icon_classifier.onnx\n\
       labels.json\n\
@@ -319,11 +319,11 @@ pub mod pipeline {
                 sub_component: true,
                 synthesize_text: true,
                 detect_model_path: format!(
-                    "{}/object-detection/yolov8s-worldv2.onnx",
+                    "{}/object-detection/yoloe-26n-seg.onnx",
                     models_dir.trim_end_matches('/')
                 ),
                 detect_labels_path: format!(
-                    "{}/object-detection/yolov8s-worldv2_labels.txt",
+                    "{}/object-detection/yoloe-26n_classes.txt",
                     models_dir.trim_end_matches('/')
                 ),
                 detect_conf: 0.01,
