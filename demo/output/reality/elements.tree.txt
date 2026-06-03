@@ -1,7 +1,8 @@
 UI Layout (474×714)
 [  0,  0 474×714] Root
-├─ [  0,333 474× 50] Blk bg(#586B94) [Primary]
-├─ [  0,385 474×112] Img bg(#5D6E96) [Primary]
-├─ [  0,498 474× 59] Blk bg(#52576D) [Primary]
-├─ [  0,560 249× 28] Blk bg(#381830) [Secondary]
-└─ [245,560 229× 28] Cmp bg(#5E555D) [Secondary]
+├─ [  0,  0 474×395] Img bg(#6891DD) [Primary]
+├─ [  0,397 474× 23] Blk bg(#5B6F9E) [Secondary]
+├─ [  0,425 474× 29] Blk bg(#552C55) [Secondary]
+├─ [  0,457 474× 72] Blk bg(#562652) [Secondary]
+├─ [  0,531 474× 24] Blk bg(#4E1F49) [Secondary]
+└─ [  0,562 474×152] Img bg(#1F171F) [Primary]
