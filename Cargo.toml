@@ -1,6 +1,6 @@
 [package]
 name = "quasivision"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 description = "A Rust-based pseudo-visual understanding tool. Analyzes screenshots, UI mockups, and real-world photos — detects UI components, recognizes text via OCR, identifies objects with YOLOE-26n."
