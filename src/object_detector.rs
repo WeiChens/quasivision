@@ -48,13 +48,12 @@ impl DetectionBbox {
         x_overlap * y_overlap
     }
 
-    pub fn contained_in(&self, other: &DetectionBbox, threshold: f64) -> bool {
-        let inter = self.intersection_area(other);
-        if inter <= 0.0 {
-            return false;
-        }
-        let self_area = self.area();
-        self_area > 0.0 && inter / self_area > threshold
+    /// 判断 self 是否被 other **完全包裹**（四边都在 other 内部）
+    pub fn fully_contained_in(&self, other: &DetectionBbox) -> bool {
+        self.x_min >= other.x_min
+            && self.y_min >= other.y_min
+            && self.x_max <= other.x_max
+            && self.y_max <= other.y_max
     }
 }
 
@@ -71,21 +70,41 @@ pub fn build_detection_tree(detections: &[Detection]) -> Vec<DetectionNode> {
         return Vec::new();
     }
 
-    let mut sorted: Vec<(usize, &Detection)> = detections.iter().enumerate().collect();
+    // ── 去重：相同 bbox 只保留置信度最高的那个 ──
+    let mut unique: Vec<Detection> = Vec::new();
+    for det in detections {
+        let pos = unique.iter().position(|u| {
+            u.bbox.x_min == det.bbox.x_min
+                && u.bbox.y_min == det.bbox.y_min
+                && u.bbox.x_max == det.bbox.x_max
+                && u.bbox.y_max == det.bbox.y_max
+        });
+        match pos {
+            Some(i) => {
+                // 同框：保留置信度更高的
+                if det.confidence > unique[i].confidence {
+                    unique[i] = det.clone();
+                }
+            }
+            None => unique.push(det.clone()),
+        }
+    }
+
+    let mut sorted: Vec<(usize, &Detection)> = unique.iter().enumerate().collect();
     sorted.sort_by(|(_, a), (_, b)| a.bbox.area().partial_cmp(&b.bbox.area()).unwrap());
 
-    let n = detections.len();
+    let n = unique.len();
     let mut parent: Vec<Option<usize>> = vec![None; n];
 
     for i in 0..n {
         let (idx_i, det_i) = sorted[i];
         for j in (i + 1)..n {
             let (idx_j, det_j) = sorted[j];
-            if det_i.bbox.contained_in(&det_j.bbox, 0.5) {
+            if det_i.bbox.fully_contained_in(&det_j.bbox) {
                 match parent[idx_i] {
                     None => parent[idx_i] = Some(idx_j),
                     Some(current_p) => {
-                        if det_j.bbox.area() < detections[current_p].bbox.area() {
+                        if det_j.bbox.area() < unique[current_p].bbox.area() {
                             parent[idx_i] = Some(idx_j);
                         }
                     }
@@ -114,7 +133,7 @@ pub fn build_detection_tree(detections: &[Detection]) -> Vec<DetectionNode> {
         .iter()
         .enumerate()
         .filter(|(_, &p)| p.is_none())
-        .map(|(idx, _)| build_node(idx, detections, &parent))
+        .map(|(idx, _)| build_node(idx, &unique, &parent))
         .collect()
 }
 
