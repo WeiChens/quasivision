@@ -299,7 +299,7 @@ output/
 
 ## ❓ 常见问题 <a id="常见问题"></a>
 
-### Q: 模型文件从哪里获取？
+### Q: 模型文件文件有哪些？
 
 模型文件位于 `resources/` 目录下：
 
@@ -380,8 +380,6 @@ cargo run -- -i document.png --paragraph true --text-max-h 0.15
 
 ---
 
-> **项目地址**：`E:/code/quasivision`  
-> **Cargo 运行**：确保在项目根目录下执行 `cargo run -- ...`
 
 ## License
 
