@@ -300,7 +300,7 @@ Detects 7 types of UI elements:
 
 ## ❓ FAQ <a id="faq"></a>
 
-### Q: Where do model files come from?
+### Q: What are the model files?
 
 Model files are located in the `resources/` directory:
 
