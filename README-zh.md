@@ -103,26 +103,24 @@ Objects (474×714) — 6 found:
 
 ## 📤 输出内容说明 <a id="输出内容说明"></a>
 
-### 5 种输出格式（`--format` 参数）
+### 输出格式（固定为 `tree`）
+
+输出始终为 **`tree` 格式**（无需 `--format` 参数）：
 
 ```
---format standard    完整 JSON（含 id/parent/children 层级关系）
-         compact     压缩 JSON（短键名，体积小 ~50%）
-         ai          归一化坐标（0-1000），适合 LLM 输入
-         text        纯文本摘要，适合直接粘贴到 prompt
-         tree        [推荐] 树形嵌套结构，AI 一眼看懂 DOM 层级
+tree        树形嵌套结构，同时输出 JSON + 纯文本，AI 一眼看懂 DOM 层级
 ```
 
-**推荐使用 `tree` 格式**，同时输出 `elements.tree.json` 和 `elements.tree.txt`。
+同时输出 `elements.tree.json`（JSON 树）和 `elements.tree.txt`（纯文本树）。
 
 ### 输出文件列表
 
 | 文件                                   | 来源        | 说明                                                |
 | -------------------------------------- | ----------- | --------------------------------------------------- |
-| `elements.tree.json` / `elements.json` | UI 元素检测 | 检测到的所有 UI 组件（按钮/文本/图标/Block 等）     |
-| `elements.tree.txt` / `elements.txt`   | UI 元素检测 | 纯文本格式摘要                                      |
+| `elements.tree.json`                   | UI 元素检测 | 检测到的所有 UI 组件（按钮/文本/图标/Block 等）     |
+| `elements.tree.txt`                    | UI 元素检测 | 纯文本格式摘要                                      |
 | `visualization.jpg`                    | UI 元素检测 | 可视化标注图（各组件用不同颜色边框标记）            |
-| `objects.tree.json` / `objects.json`   | 物体检测    | YOLOE 检测的物体（人/车/手机等 860 类），含父子层级 |
+| `objects.tree.json`                    | 物体检测    | YOLOE 检测的物体（人/车/手机等 860 类），含父子层级 |
 | `objects.tree.txt`                     | 物体检测    | 物体检测纯文本格式                                  |
 | `objects.jpg`                          | 物体检测    | 物体检测可视化标注图（带标签）                      |
 
@@ -136,7 +134,6 @@ Objects (474×714) — 6 found:
 | -------------- | ------ | ------------------- | --------------------------------------------------------- |
 | `-i, --input`  | String | **必填**            | 输入图片路径或目录                                        |
 | `-o, --output` | String | `output`            | 输出根目录                                                |
-| `--format`     | String | `tree`              | 输出格式：`standard` / `compact` / `ai` / `text` / `tree` |
 | `--recursive`  | bool   | `false`             | 递归处理子目录中的图片                                    |
 | `--extensions` | String | `png,jpg,jpeg,jfif` | 图片扩展名过滤（逗号分隔）                                |
 
@@ -322,7 +319,7 @@ resources/
 
 ### Q: 输出结果坐标是多少？
 
-默认输出原始图片像素坐标，格式为：
+输出使用原始图片像素坐标（tree 格式）：
 
 ```json
 {
@@ -333,7 +330,7 @@ resources/
 }
 ```
 
-使用 `--format ai` 输出归一化坐标（0~1000）。
+所有坐标均为原始像素值（不提供 0-1000 归一化）。
 
 ### Q: 如何只检测物体（不做 UI 检测）？
 
@@ -363,19 +360,19 @@ resources/
 
 ```bash
 # App 截图检测（推荐参数）
-cargo run -- -i app.png --gradient 4 --format tree
+cargo run -- -i app.png --gradient 4
 
 # Web 页面检测
 cargo run -- -i webpage.png --gradient 1 --rec-corner-skip 0.1
 
 # 批量处理 + 递归子目录
-cargo run -- -i ./screenshots/ --recursive --format tree
+cargo run -- -i ./screenshots/ --recursive
 
 # AI 友好输出 + 关闭不必要的功能
-cargo run -- -i ui.png --format ai --icon-classify false
+cargo run -- -i ui.png --icon-classify false
 
 # 高精度检测（调低阈值，更多物体）
-cargo run -- -i photo.jpg --detect-conf 0.1 --format tree
+cargo run -- -i photo.jpg --detect-conf 0.1
 
 # 带段落合并的文本检测
 cargo run -- -i document.png --paragraph true --text-max-h 0.15

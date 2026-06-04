@@ -104,26 +104,24 @@ A stock photo gallery page: UI detection extracts the layout structure (image gr
 
 ## 📤 Output Overview <a id="output-overview"></a>
 
-### 5 Output Formats (`--format` flag)
+### Output Format (fixed: `tree`)
+
+Output is always in **`tree` format** (no `--format` flag needed):
 
 ```
---format standard    Full JSON with id/parent/children hierarchy
-         compact     Minified JSON (short keys, ~50% smaller)
-         ai          Normalized coordinates (0-1000), LLM-friendly
-         text        Plain text summary, ready to paste into prompts
-         tree        [Recommended] Nested tree structure, AI-readable DOM
+tree        Nested tree structure, JSON + plain text, AI-readable DOM
 ```
 
-**`tree` format is recommended** — it generates both `elements.tree.json` and `elements.tree.txt`.
+It generates both `elements.tree.json` (JSON tree) and `elements.tree.txt` (plain text tree).
 
 ### Output Files
 
 | File                                   | Source        | Description                                         |
 | -------------------------------------- | ------------- | --------------------------------------------------- |
-| `elements.tree.json` / `elements.json` | UI Detection  | All detected UI components (buttons/text/icons/etc) |
-| `elements.tree.txt` / `elements.txt`   | UI Detection  | Plain text summary                                  |
+| `elements.tree.json`                   | UI Detection  | All detected UI components (buttons/text/icons/etc) |
+| `elements.tree.txt`                    | UI Detection  | Plain text summary                                  |
 | `visualization.jpg`                    | UI Detection  | Annotated image with color-coded component borders  |
-| `objects.tree.json` / `objects.json`   | Object Detect | YOLOE-detected objects (860 classes) with hierarchy |
+| `objects.tree.json`                    | Object Detect | YOLOE-detected objects (860 classes) with hierarchy |
 | `objects.tree.txt`                     | Object Detect | Object detection plain text summary                 |
 | `objects.jpg`                          | Object Detect | Object detection visualization with labels          |
 
@@ -137,7 +135,6 @@ A stock photo gallery page: UI detection extracts the layout structure (image gr
 | -------------- | ------ | ------------------- | ------------------------------------------------------ |
 | `-i, --input`  | String | **Required**        | Input image path or directory                          |
 | `-o, --output` | String | `output`            | Output root directory                                  |
-| `--format`     | String | `tree`              | Output format: `standard`/`compact`/`ai`/`text`/`tree` |
 | `--recursive`  | bool   | `false`             | Recursively process subdirectories                     |
 | `--extensions` | String | `png,jpg,jpeg,jfif` | Comma-separated image file extensions                  |
 
@@ -332,7 +329,7 @@ cargo run -- --input image.png
 
 ### Q: What coordinate system does the output use?
 
-Default output uses raw pixel coordinates:
+Output uses raw pixel coordinates (tree format):
 
 ```json
 {
@@ -343,7 +340,7 @@ Default output uses raw pixel coordinates:
 }
 ```
 
-Use `--format ai` for normalized coordinates (0–1000).
+All coordinates are in original pixel values (0–1000 normalization is not used).
 
 ### Q: How can I run object detection only (without UI detection)?
 
@@ -373,19 +370,19 @@ Default: `png`, `jpg`, `jpeg`, `jfif`. Customize with `--extensions`.
 
 ```bash
 # App screenshot (recommended parameters)
-cargo run -- -i app.png --gradient 4 --format tree
+cargo run -- -i app.png --gradient 4
 
 # Web page detection
 cargo run -- -i webpage.png --gradient 1 --rec-corner-skip 0.1
 
 # Batch processing with recursion
-cargo run -- -i ./screenshots/ --recursive --format tree
+cargo run -- -i ./screenshots/ --recursive
 
-# AI-friendly output, disable non-essential features
-cargo run -- -i ui.png --format ai --icon-classify false
+# AI-friendly output (disable non-essential features)
+cargo run -- -i ui.png --icon-classify false
 
 # High-recall detection
-cargo run -- -i photo.jpg --detect-conf 0.1 --format tree
+cargo run -- -i photo.jpg --detect-conf 0.1
 
 # Paragraph-aware text detection
 cargo run -- -i document.png --paragraph true --text-max-h 0.15

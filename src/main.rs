@@ -62,9 +62,7 @@ struct Args {
     #[arg(long, default_value = "png,jpg,jpeg,jfif")]
     extensions: String,
 
-    /// 输出格式: standard | compact | ai | text | tree
-    #[arg(long, default_value = "tree")]
-    format: String,
+
 
     // ── 线条移除参数 ──
     /// 线条最大粗细（像素），默认 8
@@ -153,8 +151,6 @@ struct RunOptions {
     enable_icon_classify: bool,
     /// 是否启用物体检测
     enable_object_detect: bool,
-    /// 输出格式
-    output_format: String,
     /// 物体检测置信度阈值
     detect_conf: f32,
     /// 模型资源根目录（ocr-models / icon-classifier / object-detection 等子目录的父目录）
@@ -187,7 +183,6 @@ impl From<&Args> for RunOptions {
             enable_synthesize: args.synthesize_text,
             enable_icon_classify: args.icon_classify,
             enable_object_detect: args.object_detect,
-            output_format: args.format.clone(),
             detect_conf: args.detect_conf,
             models_dir: args.models_dir.clone(),
         }
@@ -460,59 +455,30 @@ fn run_pipeline(img_path: &str, output_root: &str, opts: &RunOptions) -> anyhow:
     let output_dir = Path::new(output_root).join(img_name);
     fs::create_dir_all(&output_dir)?;
 
-    match opts.output_format.as_str() {
-        "compact" => {
-            let json_path = output_dir.join("elements.compact.json");
-            export::save_compact_json(&elements, img_shape, json_path.to_str().unwrap())?;
-        }
-        "ai" => {
-            let json_path = output_dir.join("elements.ai.json");
-            export::save_ai_json(&elements, img_shape, json_path.to_str().unwrap())?;
-        }
-        "text" => {
-            let txt_path = output_dir.join("elements.txt");
-            export::save_text_summary(&elements, img_shape, txt_path.to_str().unwrap())?;
-        }
-        "tree" => {
-            let json_path = output_dir.join("elements.tree.json");
-            export::save_tree_json(&elements, img_shape, json_path.to_str().unwrap())?;
-            let txt_path = output_dir.join("elements.tree.txt");
-            export::save_tree_text(&elements, img_shape, txt_path.to_str().unwrap())?;
-        }
-        _ => {
-            let json_path = output_dir.join("elements.json");
-            export::save_json(&elements, img_shape, json_path.to_str().unwrap())?;
-        }
+    // 输出格式固定为 tree
+    {
+        let json_path = output_dir.join("elements.tree.json");
+        export::save_tree_json(&elements, img_shape, json_path.to_str().unwrap())?;
+        let txt_path = output_dir.join("elements.tree.txt");
+        export::save_tree_text(&elements, img_shape, txt_path.to_str().unwrap())?;
     }
 
-    // 物体检测结果输出
+    // 物体检测结果输出（格式固定为 tree）
     let detection_roots = object_detector::build_detection_tree(&object_detections);
     if !detection_roots.is_empty() {
-        match opts.output_format.as_str() {
-            "tree" => {
-                let det_tree_path = output_dir.join("objects.tree.json");
-                export::save_detection_tree_json(
-                    &detection_roots,
-                    img_shape,
-                    det_tree_path.to_str().unwrap(),
-                )?;
-                let det_txt_path = output_dir.join("objects.tree.txt");
-                export::save_detection_tree_text(
-                    &detection_roots,
-                    img_shape,
-                    det_txt_path.to_str().unwrap(),
-                )?;
-            }
-            _ => {
-                let det_path = output_dir.join("objects.json");
-                export::save_detection_tree_json(
-                    &detection_roots,
-                    img_shape,
-                    det_path.to_str().unwrap(),
-                )?;
-            }
-        }
-    } else if matches!(opts.output_format.as_str(), "tree") {
+        let det_tree_path = output_dir.join("objects.tree.json");
+        export::save_detection_tree_json(
+            &detection_roots,
+            img_shape,
+            det_tree_path.to_str().unwrap(),
+        )?;
+        let det_txt_path = output_dir.join("objects.tree.txt");
+        export::save_detection_tree_text(
+            &detection_roots,
+            img_shape,
+            det_txt_path.to_str().unwrap(),
+        )?;
+    } else {
         let det_txt_path = output_dir.join("objects.tree.txt");
         export::save_detection_tree_text(
             &detection_roots,
